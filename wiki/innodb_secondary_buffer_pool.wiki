@@ -4,13 +4,15 @@
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
 This feature is much like flash cache in Oracle's Extradata
 
-After enable this feature, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance. From my test, even using a very normal flash memory, InnoDB's performance is 2x - 3x faster .
+After enable this feature, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance. From my TPC-C test, even using a very normal flash memory, InnoDB's performance is 2x - 3x faster.
+
+For using innodb secondary buffer pool, it is highly recommand you using 64 bit os system.
 
 = Configuration =
 
 1. create the file on flash memory, we use this file as secondary buffer pool<br>
 
-dd if=/dev/zero of=/db/ib_sbpfile bs=16384 count=655360
+dd if=/dev/zero of=ib_sbpfile bs=16384 count=655360(
 
 2. edit the my.cnf file, add followings:
 
@@ -24,3 +26,10 @@ innodb-secondary-buffer-pool-file=/db/ib_sbpfile
 3. watch secondary buffer pool status using show innodb status\G:
 
 4. new innodb status variables:
+
+= Next Feature =
+
+1. add LRU aglorithm to secondary buffer pool. current is too simple
+
+2. add secondary buffer pool status info to INFORMATION_SCHEMA
+  
