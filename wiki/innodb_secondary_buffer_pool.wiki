@@ -10,7 +10,7 @@ For using innodb secondary buffer pool, it is highly recommand you using 64 bit 
 
 = Configuration =
 
-1. create the file on flash memory, we use this file as secondary buffer pool<br>
+1. create the file on flash memory, we use this file as secondary buffer pool
 
 dd if=/dev/zero of=ib_sbpfile bs=16384 count=655360 
 
@@ -29,7 +29,7 @@ innodb-secondary-buffer-pool-file=/db/ib_sbpfile
 
 = Next Feature =
 
-1. add LRU aglorithm to secondary buffer pool. current is too simple
+1. add LRU aglorithm to secondary buffer pool.
 
 2. add secondary buffer pool status info to INFORMATION_SCHEMA
   
