@@ -1,0 +1,25 @@
+#labels InnoDB,SSD,Flash
+*InnoDB secondary buffer pool*
+
+= Introduction =
+
+Enable using flash memory or SSD as innodb's secondary buffer pool.
+This feature is much like flash cache in Oracle's Extradata
+
+
+= Commands =
+
+edit the my.cnf file, add followings:
+
+{{{
+[mysqld]
+innodb-secondary-buffer-pool-size=10G
+innodb-secondary-buffer-pool-file=/db/ib_sbpfile
+}}}
+
+= Details =
+
+Add your content here.  Format your content with:
+  * Text in *bold* or _italic_
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages
