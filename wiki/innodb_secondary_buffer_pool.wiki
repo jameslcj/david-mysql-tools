@@ -1,4 +1,4 @@
-#labels InnoDB,SSD,Flash
+#labels InnoDB,SSD,Flash,Cache
 = Introduction =
 
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
