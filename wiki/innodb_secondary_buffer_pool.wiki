@@ -24,8 +24,32 @@ innodb-secondary-buffer-pool-file=/db/ib_sbpfile
 
 
 3. watch secondary buffer pool status using show innodb status\G:
-
+{{{
+mysql> show engine innodb status\G;
+*************************** 1. row ***************************
+......
+----------------------
+SECONDARY BUFFER POOL
+----------------------
+Secondary buffer pool size      65536
+Free pages      0
+LRU pages       65536
+Pages read 3659084, sync 1166095, swap 52053
+Secondary buffer pool hit rate 969 / 1000
+......
+}}}
 4. new innodb status variables:
+{{{
+mysql> show status like 'innodb_sec%';
++------------------------------------+---------+
+| Variable_name                      | Value   |
++------------------------------------+---------+
+| Innodb_secondary_buffer_pool_reads | 3694769 |
+| Innodb_secondary_buffer_pool_sync  | 1177590 |
+| Innodb_secondary_buffer_pool_swap  | 52165   |
++------------------------------------+---------+
+3 rows in set (0.01 sec)
+}}}
 
 = Next Feature =
 
