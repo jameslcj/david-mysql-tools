@@ -51,9 +51,8 @@ mysql> show status like 'innodb_sec%';
 3 rows in set (0.01 sec)
 }}}
 
-= Next Feature =
-
-1. add LRU aglorithm to secondary buffer pool.
-
-2. add secondary buffer pool status info to INFORMATION_SCHEMA
+= Next New Feature =
+ # allow to pin the table into secondary buffer pool.
+ # add LRU aglorithm to secondary buffer pool.
+ # add secondary buffer pool status info to INFORMATION_SCHEMA.
   
