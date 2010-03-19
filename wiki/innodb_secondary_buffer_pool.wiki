@@ -2,9 +2,9 @@
 = Introduction =
 
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
-This feature is much like flash cache in Oracle's Extradata
+This feature is much like flash cache in Oracle's Exadata
 
-After enable this feature, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool first. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance. From TPC-C test, even using a very normal flash memory, InnoDB's performance is 2x - 3x faster.
+After enable this feature, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool first. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance.
 
 For using innodb secondary buffer pool, it is highly recommand you using 64 bit os system.
 
