@@ -1,9 +1,9 @@
+#labels MySQL,InnoDB,page,python,tablespace
 * py_innodb_page_info.py
 
 = Introduction =
 
-a python script to get the page type from innodb tablespace
+a python script to get the page type from innodb tablespace, such as *.ibd, ibdata1 
 
 
 = Command =
-
