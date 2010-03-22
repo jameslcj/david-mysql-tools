@@ -31,10 +31,10 @@ mysql> show engine innodb status\G;
 ----------------------
 SECONDARY BUFFER POOL
 ----------------------
-Secondary buffer pool size      65536
+Secondary buffer pool size      655360
 Free pages      0
-LRU pages       65536
-Pages read 3659084, sync 1166095, swap 52053
+LRU pages       655360
+Pages read 3659084, sync 11669, swap 520
 Secondary buffer pool hit rate 969 / 1000
 ......
 }}}
@@ -45,8 +45,8 @@ mysql> show status like 'innodb_sec%';
 | Variable_name                      | Value   |
 +------------------------------------+---------+
 | Innodb_secondary_buffer_pool_reads | 3694769 |
-| Innodb_secondary_buffer_pool_sync  | 1177590 |
-| Innodb_secondary_buffer_pool_swap  | 52165   |
+| Innodb_secondary_buffer_pool_sync  | 11669   |
+| Innodb_secondary_buffer_pool_swap  | 520     |
 +------------------------------------+---------+
 3 rows in set (0.01 sec)
 }}}
