@@ -17,7 +17,8 @@ flash storage: 1G normal flash memory (995M after format)<br>
 test: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result* ||
 || 128M || 0|| 492.35 tpmC ||
-|| 128M || 920M || 1883.750 tpmC ||
+|| 128M || 512M || 1877.05 tpmC ||
+|| 128M || 920M || 1883.75 tpmC ||
 
 = Configuration =
 
