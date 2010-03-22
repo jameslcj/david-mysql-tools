@@ -1763,7 +1763,6 @@ buf_LRU_block_remove_hashed_page(
 
 	/* if secondary buffer pool is enable */
 	if ( srv_sec_buf_pool_size > 0 
-		&& UT_LIST_GET_LEN(buf_pool->free) == 0
 		&& bpage->offset > 3
 		&& bpage->space != 0
 		&& buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE
