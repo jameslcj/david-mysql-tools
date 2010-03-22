@@ -10,6 +10,15 @@ For using innodb secondary buffer pool, it is highly recommand you using 64 bit 
 
 Currently, flash cache do not cache the data in share tablespace (ibdata1). Hence, you must use --innodb_file_per_table parameter to enable flash cache.
 
+= TPC-C benchmark =
+Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
+Database: 1G ( created by tpcc_load, 10 warehouse )<br>
+flash storage: 1G normal flash memory
+test: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
+|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result* ||
+|| 128M || 0|| 492.35 tpmC ||
+|| 128M || 920M || 2700 tpmC ||
+
 = Configuration =
 
 1. create the file on flash memory, we use this file as secondary buffer pool. (In windows, InnoDB will auto create this file)
