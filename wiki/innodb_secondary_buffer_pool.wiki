@@ -10,7 +10,7 @@ For using innodb secondary buffer pool, it is highly recommand you using 64 bit 
 
 = Configuration =
 
-1. create the file on flash memory, we use this file as secondary buffer pool
+1. create the file on flash memory, we use this file as secondary buffer pool. (In windows, InnoDB will auto create this file)
 
 {{{
 dd if=/dev/zero of=ib_sbpfile bs=16384 count=655360 
