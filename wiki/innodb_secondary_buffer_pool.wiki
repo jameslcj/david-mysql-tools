@@ -44,11 +44,12 @@ mysql> show engine innodb status\G;
 ----------------------
 SECONDARY BUFFER POOL
 ----------------------
-Secondary buffer pool size      655360
-Free pages      0
-LRU pages       655360
-Pages read 3659084, sync 11669, swap 520
-Secondary buffer pool hit rate 969 / 1000
+Secondary buffer pool size      58880
+Free pages      126
+LRU pages       58754
+Page reads 971180, sync 548939, swap 490185
+Secondary buffer pool hit rate 916 / 1000 (in 23.00 sec)
+649.10 reads/s, 334.16 sync/s, 336.25 swap/s (in 23.00 sec)
 ......
 }}}
 4. new innodb status variables:
