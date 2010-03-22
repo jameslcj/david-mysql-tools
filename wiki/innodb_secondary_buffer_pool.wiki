@@ -8,6 +8,8 @@ After enable this feature, when the page was removed from the innodb buffer pool
 
 For using innodb secondary buffer pool, it is highly recommand you using 64 bit os system.
 
+Currently, flash cache do not cache the data in share tablespace (ibdata1). Hence, you must use --innodb_file_per_table parameter to enable flash cache.
+
 = Configuration =
 
 1. create the file on flash memory, we use this file as secondary buffer pool. (In windows, InnoDB will auto create this file)
