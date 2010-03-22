@@ -24,14 +24,14 @@ test: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
 1. create the file on flash memory, we use this file as secondary buffer pool. (In windows, InnoDB will auto create this file)
 
 {{{
-dd if=/dev/zero of=ib_sbpfile bs=16384 count=655360 
+dd if=/dev/zero of=ib_sbpfile bs=16384 count=58880 
 }}}
 
 2. edit the my.cnf file, add followings:
 
 {{{
 [mysqld]
-innodb-secondary-buffer-pool-size=10G
+innodb-secondary-buffer-pool-size=920M
 innodb-secondary-buffer-pool-file=/flash/ib_sbpfile
 }}}
 
@@ -54,15 +54,15 @@ Secondary buffer pool hit rate 916 / 1000 (in 23.00 sec)
 }}}
 4. new innodb status variables:
 {{{
-mysql> show status like 'innodb_sec%';
+mysql> show global status like 'innodb_sec%';         
 +------------------------------------+---------+
 | Variable_name                      | Value   |
 +------------------------------------+---------+
-| Innodb_secondary_buffer_pool_reads | 3694769 |
-| Innodb_secondary_buffer_pool_sync  | 11669   |
-| Innodb_secondary_buffer_pool_swap  | 520     |
+| Innodb_secondary_buffer_pool_reads | 1106312 |
+| Innodb_secondary_buffer_pool_sync  | 619074  |
+| Innodb_secondary_buffer_pool_swap  | 560194  |
 +------------------------------------+---------+
-3 rows in set (0.01 sec)
+3 rows in set (0.00 sec)
 }}}
 
 = Next New Feature =
