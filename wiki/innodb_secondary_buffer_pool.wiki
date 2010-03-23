@@ -1,4 +1,4 @@
-#labels InnoDB,SSD,Flash,Cache
+#labels InnoDB,SSD,Flash,Cache,MySQL
 = Introduction =
 
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
@@ -14,17 +14,23 @@ Currently, flash cache do not cache the data in share tablespace (ibdata1). Henc
 
 Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
 
-Database: 1G ( created by tpcc_load, 10 warehouse )<br>
+Database: ~1.2G ( created by tpcc_load, 10 warehouse )<br>
 
 disk: 4 disk RAID 10
 
 flash storage: 1G normal flash memory (995M after format)<br>
 
-test: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
+MySQL configuration:
+{{{
+| innodb_flush_log_at_trx_commit    | 1        |
+| innodb_flush_method               | O_DIRECT |
+}}}
+
+tpcc-mysql: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
 
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result* ||
-|| 128M || 0|| 1239.3 tpmC || 
-|| 128M || 512M || - tpmC ||
+|| 128M || 0|| 1336.65 tpmC || 
+|| 128M || 512M || 3771.2 tpmC ||
 || 128M || 920M || 4481.4 tpmC ||
 
 = Configuration =
