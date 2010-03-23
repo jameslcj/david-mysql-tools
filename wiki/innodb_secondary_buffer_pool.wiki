@@ -16,14 +16,16 @@ Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
 
 Database: 1G ( created by tpcc_load, 10 warehouse )<br>
 
+disk: 4 disk RAID 10
+
 flash storage: 1G normal flash memory (995M after format)<br>
 
 test: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
 
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result* ||
-|| 128M || 0|| 1039.3 tpmC || 
-|| 128M || 512M || 1733.45 tpmC ||
-|| 128M || 920M || 1878.9 tpmC ||
+|| 128M || 0|| 1239.3 tpmC || 
+|| 128M || 512M || - tpmC ||
+|| 128M || 920M || 4481.4 tpmC ||
 
 = Configuration =
 
