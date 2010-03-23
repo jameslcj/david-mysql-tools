@@ -62,11 +62,11 @@ Secondary buffer pool hit rate 916 / 1000 (in 23.00 sec)
 {{{
 mysql> show global status like 'innodb_sec%';         
 +------------------------------------+---------+
-| Variable_name                                                         | Value           |
+| Variable_name                      | Value   |
 +------------------------------------+---------+
-| Innodb_secondary_buffer_pool_reads               | 1106312        |
-| Innodb_secondary_buffer_pool_sync                 | 619074         |
-| Innodb_secondary_buffer_pool_swap                 | 560194         |
+| Innodb_secondary_buffer_pool_reads | 1106312 |
+| Innodb_secondary_buffer_pool_sync  | 619074  |
+| Innodb_secondary_buffer_pool_swap  | 560194  |
 +------------------------------------+---------+
 3 rows in set (0.00 sec)
 }}}
