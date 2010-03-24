@@ -67,6 +67,7 @@ Created 10/10/1995 Heikki Tuuri
 #include "trx0types.h"
 
 extern const char* srv_sec_buf_pool_file;
+extern const char* srv_sec_buf_pool_preload_table;
 extern ulint	srv_sec_buf_pool_size;
 
 extern const char*	srv_main_thread_op_info;

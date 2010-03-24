@@ -156,7 +156,7 @@ static long long innobase_buffer_pool_size, innobase_log_file_size;
 
 static long long innobase_secondary_buffer_pool_size;
 static char*	innobase_secondary_buffer_pool_file	= NULL;
-
+static char*	innobase_secondary_buffer_pool_preload_table = NULL;
 /** Percentage of the buffer pool to reserve for 'old' blocks.
 Connected to buf_LRU_old_ratio. */
 static uint innobase_old_blocks_pct;
@@ -1416,6 +1416,10 @@ ha_innobase::ha_innobase(handlerton *hton, TABLE_SHARE *table_arg)
   num_write_row(0)
 {}
 
+int ha_innobase::assign_to_keycache(THD* thd, HA_CHECK_OPT *check_opt){
+	return 1;
+}
+
 /*********************************************************************//**
 Destruct ha_innobase handler. */
 UNIV_INTERN
@@ -2212,6 +2216,7 @@ innobase_change_buffering_inited_ok:
 
 	srv_sec_buf_pool_size = (ulint) innobase_secondary_buffer_pool_size;
 	srv_sec_buf_pool_file = innobase_secondary_buffer_pool_file;
+	srv_sec_buf_pool_preload_table = innobase_secondary_buffer_pool_preload_table;
 
 	srv_mem_pool_size = (ulint) innobase_additional_mem_pool_size;
 
@@ -10208,7 +10213,12 @@ static MYSQL_SYSVAR_STR(secondary_buffer_pool_file, innobase_secondary_buffer_po
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Path to InnoDB secondary buffer pool files.", NULL, NULL, "ib_sbpfile");
 
+static MYSQL_SYSVAR_STR(secondary_buffer_pool_preload_table, innobase_secondary_buffer_pool_preload_table,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Preload table to InnoDB secondary buffer pool", NULL, NULL, "");
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(secondary_buffer_pool_preload_table),
   MYSQL_SYSVAR(secondary_buffer_pool_size),
   MYSQL_SYSVAR(secondary_buffer_pool_file),
   MYSQL_SYSVAR(additional_mem_pool_size),

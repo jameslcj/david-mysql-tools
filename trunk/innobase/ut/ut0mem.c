@@ -148,7 +148,7 @@ ut_mmap_alloc_low(
 	}
 #endif
 	ut_print_timestamp(stderr);
-	fprintf(stderr," InnoDB: create secondary buffer pool success\n");
+	fprintf(stderr,"  InnoDB: create secondary buffer pool success\n");
 	return ret;
 }
 /**********************************************************************//**

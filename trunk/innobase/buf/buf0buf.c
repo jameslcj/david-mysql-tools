@@ -369,7 +369,6 @@ buf_sec_pool_free(void)
 	buf_sec_pool = NULL;
 }
 
-
 /*********************************************************************//**
 */
 UNIV_INTERN
@@ -413,6 +412,8 @@ buf_sec_pool_init()
 	memset(&buf_sec_pool->old_stat,0x00,sizeof(buf_sec_pool->stat));
 	
 	mutex_exit(&buf_sec_pool->mutex);
+
+
 }
 
 /********************************************************************//**

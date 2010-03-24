@@ -204,6 +204,7 @@ class ha_innobase: public handler
 	/** @} */
 	bool check_if_incompatible_data(HA_CREATE_INFO *info,
 					uint table_changes);
+	int assign_to_keycache(THD* thd, HA_CHECK_OPT *check_opt);
 };
 
 /* Some accessor functions which the InnoDB plugin needs, but which
