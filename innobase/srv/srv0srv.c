@@ -108,6 +108,7 @@ Created 10/8/1995 Heikki Tuuri
 UNIV_INTERN ulint	srv_sec_buf_pool_size	= ULINT_MAX;
 /* secondary buffer pool file name */
 UNIV_INTERN const char*	srv_sec_buf_pool_file;
+UNIV_INTERN const char* srv_sec_buf_pool_preload_table;
 /* This is set to TRUE if the MySQL user has set it in MySQL; currently
 affects only FOREIGN KEY definition parsing */
 UNIV_INTERN ibool	srv_lower_case_table_names	= FALSE;
