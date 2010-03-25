@@ -50,6 +50,7 @@ dd if=/dev/zero of=ib_sbpfile bs=16384 count=58880
 [mysqld]
 innodb-secondary-buffer-pool-size=920M
 innodb-secondary-buffer-pool-file=/flash/ib_sbpfile
+innodb_secondary_buffer_pool_preload_table=tpcc.*:test.t
 }}}
 
 
