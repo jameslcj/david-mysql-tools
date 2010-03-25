@@ -3172,7 +3172,7 @@ fil_pre_load_to_secondary_buffer_pool(
 		}
 }
 
-
+static
 void
 fil_pre_load_tablespaces(void){
 	int		ret;
