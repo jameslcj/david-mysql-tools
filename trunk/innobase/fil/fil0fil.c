@@ -3172,7 +3172,7 @@ fil_pre_load_to_secondary_buffer_pool(
 		}
 }
 
-static
+UNIV_INTERN
 void
 fil_pre_load_tablespaces(void){
 	int		ret;
@@ -3194,7 +3194,7 @@ fil_pre_load_tablespaces(void){
 
 	if (dir == NULL) {
 
-		return(DB_ERROR);
+		return;
 	}
 
 	dbpath = mem_alloc(dbpath_len);
