@@ -3105,7 +3105,7 @@ fil_pre_load_to_secondary_buffer_pool(
 		}
 
 		if ( success && UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
-			int i;
+			ulint i;
 			ulint size;
 			ulint size_high;
 			buf_sec_block_t* block;
@@ -3117,7 +3117,7 @@ fil_pre_load_to_secondary_buffer_pool(
 				fprintf(stderr,"  InnoDB: preloading table %s.%s to secondary buffer pool.(%.2f%%)\n",dbname,tablename,
 					(100.0*UT_LIST_GET_LEN(buf_sec_pool->LRU)/((UT_LIST_GET_LEN(buf_sec_pool->free)+(UT_LIST_GET_LEN(buf_sec_pool->LRU)))))); 
 			}
-			for ( i = 0; i < size/UNIV_PAGE_SIZE ; i++ ){
+			for ( i = 0; i < (size / UNIV_PAGE_SIZE) ; i++ ){
 				/* Read the first page of the tablespace if the size big enough */
 				buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
 				/* Align the memory for file i/o if we might have O_DIRECT set */
@@ -3442,8 +3442,11 @@ fil_load_single_table_tablespace(
 
 	fil_node_create(filepath, 0, space_id, FALSE);
 
-	if ( srv_sec_buf_pool_size > 0 ){
-		fil_pre_load_to_secondary_buffer_pool(file,dbname,strtok(filename,"."),space_id);
+	if ( srv_sec_buf_pool_size > 0 && space_id != 0 ){
+		char f[100];
+		ut_strcpy(f,filename);
+		/* do not preload share tablespace */
+		fil_pre_load_to_secondary_buffer_pool(file,dbname,strtok(f,"."),space_id);
 	}
 
 func_exit:
