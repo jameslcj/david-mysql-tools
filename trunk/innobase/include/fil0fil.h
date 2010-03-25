@@ -485,6 +485,9 @@ fil_reset_too_high_lsns(
 					to FIL_PAGE_FILE_FLUSH_LSN in the
 					first page is too high */
 #endif /* !UNIV_HOTBACKUP */
+UNIV_INTERN
+void
+fil_pre_load_tablespaces(void);
 /********************************************************************//**
 At the server startup, if we need crash recovery, scans the database
 directories under the MySQL datadir, looking for .ibd files. Those files are
