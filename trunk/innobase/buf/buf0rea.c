@@ -159,8 +159,11 @@ buf_read_page_low(
 				mutex_enter(buf_page_get_mutex(bpage));
 				ut_memcpy(((buf_block_t*)bpage)->frame,block->frame,UNIV_PAGE_SIZE);
 				block->reads++;
-				block->access_time = 0;
+				block->access_time = ut_time_ms();
 				bpage->io_fix = BUF_IO_READ;
+				/* add block to LRU FIRST */
+				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
+				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
 				mutex_exit(buf_page_get_mutex(bpage));
 				mutex_exit(&block->mutex);
 				mutex_exit(&buf_sec_pool->mutex);
