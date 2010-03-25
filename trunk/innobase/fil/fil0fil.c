@@ -3172,9 +3172,9 @@ fil_pre_load_to_secondary_buffer_pool(
 		}
 }
 
-UNIV_INTERN
-void
-fil_pre_load_tablespaces(void){
+static
+void 
+fil_pre_load_tablespaces2(void){
 	int		ret;
 	char*		dbpath		= NULL;
 	ulint		dbpath_len	= 100;
@@ -3319,6 +3319,12 @@ next_datadir_item:
 	}
 
 	mem_free(dbpath);
+}
+
+UNIV_INTERN
+void
+fil_pre_load_tablespaces(void){
+	fil_pre_load_tablespaces2();
 }
 
 
