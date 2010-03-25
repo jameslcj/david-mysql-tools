@@ -432,6 +432,31 @@ next_page:
 		bpage = prev_bpage;
 	}
 
+	if ( srv_sec_buf_pool_size > 0 ){
+		buf_sec_block_t* b;
+		buf_sec_block_t* prev_b;
+
+		mutex_enter(&buf_sec_pool->mutex);
+
+		b = UT_LIST_GET_LAST(buf_sec_pool->LRU);
+		
+		while ( b ){
+			mutex_enter(&b->mutex);
+			prev_b = UT_LIST_GET_PREV(LRU,b);
+			if ( b->space == id ){
+				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,b);
+				UT_LIST_ADD_FIRST(free,buf_sec_pool->free,b);
+				HASH_DELETE(buf_sec_block_t,hash,buf_sec_pool->page_hash,
+					buf_page_address_fold(b->space,b->offset),b);
+			}
+			mutex_exit(&b->mutex);
+			b = prev_b;
+		}
+
+		mutex_exit(&buf_sec_pool->mutex);
+
+	}
+
 	buf_pool_mutex_exit();
 
 	if (!all_freed) {
