@@ -41,7 +41,8 @@ tpcc-mysql: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
 1. create the file on flash memory, we use this file as secondary buffer pool. (In windows, InnoDB will auto create this file)
 
 {{{
-dd if=/dev/zero of=ib_sbpfile bs=16384 count=58880 
+[root@xen-server ~]#dd if=/dev/zero of=ib_sbpfile bs=16384 count=58880 
+[root@xen-server ~]#chown mysql:mysql ib_sbpfile
 }}}
 
 2. edit the my.cnf file, add followings:
