@@ -1079,6 +1079,12 @@ struct buf_sec_pool_stat_struct{
 					/*!< number swap operations */
 	ulint	n_page_made_young;
 					/*!< number make young operations */
+	ulint	n_page_skip_unuseful;
+					/*!< number skip to secondary buffer pool 
+					because of unusefule page, access_time = 0 */
+	ulint	n_page_skip_write_overloaded;
+					/*!< number skip to secondary buffer pool
+					because busy write */
 };
 
 struct buf_sec_pool_struct{

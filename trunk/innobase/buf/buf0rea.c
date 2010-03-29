@@ -164,6 +164,7 @@ buf_read_page_low(
 				/* add block to LRU FIRST */
 				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
 				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
+				buf_sec_pool->stat.n_page_made_young++;
 				mutex_exit(buf_page_get_mutex(bpage));
 				mutex_exit(&block->mutex);
 				mutex_exit(&buf_sec_pool->mutex);
