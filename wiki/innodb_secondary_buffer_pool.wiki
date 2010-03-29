@@ -73,17 +73,32 @@ Secondary buffer pool hit rate 916 / 1000 (in 23.00 sec)
 }}}
 4. new innodb status variables:
 {{{
-mysql> show global status like 'innodb_sec%';         
-+------------------------------------+---------+
-| Variable_name                      | Value   |
-+------------------------------------+---------+
-| Innodb_secondary_buffer_pool_reads | 1106312 |
-| Innodb_secondary_buffer_pool_sync  | 619074  |
-| Innodb_secondary_buffer_pool_swap  | 560194  |
-+------------------------------------+---------+
-3 rows in set (0.00 sec)
+mysql> show global status like 'innodb_sec%';
++----------------------------------------------------+--------+
+| Variable_name                                      | Value  |
++----------------------------------------------------+--------+
+| Innodb_secondary_buffer_pool_reads                 | 269080 |
+| Innodb_secondary_buffer_pool_sync                  | 201435 |
+| Innodb_secondary_buffer_pool_swap                  | 214080 |
+| Innodb_secondary_buffer_pool_make_young            | 269080 |
+| Innodb_secondary_buffer_pool_skip_unuseful         | 9325   |
+| Innodb_secondary_buffer_pool_skip_write_overloaded | 0      |
++----------------------------------------------------+--------+
+6 rows in set (0.00 sec)
 }}}
-
+5. after enable innodb_secondary_buffer_pool_preload_table, you will see the following lines in .err file:
+{{{
+100329 11:09:55  InnoDB: preloading table tpcc.warehouse to secondary buffer pool.(0.00%)
+100329 11:09:55  InnoDB: preloading table tpcc.item to secondary buffer pool.(0.00%)
+100329 11:09:55  InnoDB: preloading table tpcc.new_orders to secondary buffer pool.(1.01%)
+100329 11:09:55  InnoDB: preloading table tpcc.history to secondary buffer pool.(1.27%)
+100329 11:09:55  InnoDB: preloading table tpcc.district to secondary buffer pool.(4.57%)
+100329 11:09:55  InnoDB: preloading table tpcc.customer to secondary buffer pool.(4.57%)
+100329 11:09:56  InnoDB: preloading table tpcc.order_line to secondary buffer pool.(25.85%)
+100329 11:09:56  InnoDB: preloading table tpcc.orders to secondary buffer pool.(57.90%)
+100329 11:09:57  InnoDB: preloading table tpcc.stock to secondary buffer pool.(60.12%)
+100329 11:09:57  InnoDB: preloading to secondary buffer pool finish.
+}}}
 = Next New Feature =
  # allow to pin the table into secondary buffer pool.
  # add LRU aglorithm to secondary buffer pool.
