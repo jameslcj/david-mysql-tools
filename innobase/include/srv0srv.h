@@ -592,6 +592,9 @@ struct export_var_struct{
 	ulint innodb_secondary_buffer_pool_pages_reads; /*< buf_sec_pool->stat.n_page_reads */
 	ulint innodb_secondary_buffer_pool_pages_sync; /*< buf_sec_pool->stat.n_page_sync */
 	ulint innodb_secondary_buffer_pool_pages_swap; /*< buf_sec_pool->stat.n_page_swap */
+	ulint innodb_secondary_buffer_pool_pages_made_young; /*< buf_sec_pool->stat.n_page_made_young */
+	ulint innodb_secondary_buffer_pool_pages_skip_unuseful; /*< buf_sec_pool->stat.n_page_skip_unuseful */
+	ulint innodb_secondary_buffer_pool_pages_skip_write_overloaded; /*< buf_sec_pool->stat.n_page_skip_write_overloaded */
 	ulint innodb_data_pending_reads;	/*!< Pending reads */
 	ulint innodb_data_pending_writes;	/*!< Pending writes */
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */

@@ -1884,6 +1884,14 @@ srv_export_innodb_status(void)
 			=  buf_sec_pool->stat.n_page_reads;
 		export_vars.innodb_secondary_buffer_pool_pages_swap
 			=  buf_sec_pool->stat.n_page_swap;
+		export_vars.innodb_secondary_buffer_pool_pages_made_young
+			= buf_sec_pool->stat.n_page_made_young;
+		export_vars.innodb_secondary_buffer_pool_pages_skip_unuseful
+			= buf_sec_pool->stat.n_page_skip_unuseful;
+		export_vars.innodb_secondary_buffer_pool_pages_skip_write_overloaded
+			= buf_sec_pool->stat.n_page_skip_write_overloaded;
+
+
 	}
 	export_vars.innodb_data_pending_reads
 		= os_n_pending_reads;

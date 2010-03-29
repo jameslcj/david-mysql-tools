@@ -306,10 +306,14 @@ buf_sec_print_io(
 		);
 
 	fprintf(file,
-		"Page reads %lu, sync %lu, swap %lu\n",
+		"Page reads %lu, sync %lu, swap %lu\n"
+		"Page make young %lu, skip_unuseful %lu, skip_write_overloaded %lu\n",
 		(ulong) buf_sec_pool->stat.n_page_reads,
 		(ulong) buf_sec_pool->stat.n_page_sync,
-		(ulong) buf_sec_pool->stat.n_page_swap
+		(ulong) buf_sec_pool->stat.n_page_swap,
+		(ulong) buf_sec_pool->stat.n_page_made_young,
+		(ulong) buf_sec_pool->stat.n_page_skip_unuseful,
+		(ulong) buf_sec_pool->stat.n_page_skip_write_overloaded
 		);
 
 	n_gets_diff = buf_pool->stat.n_pages_read - buf_pool->old_stat.n_pages_read;
