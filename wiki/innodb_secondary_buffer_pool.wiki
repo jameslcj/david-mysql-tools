@@ -101,6 +101,6 @@ mysql> show global status like 'innodb_sec%';
 }}}
 = Next New Feature =
  # allow to pin the table into secondary buffer pool.
- # add LRU aglorithm to secondary buffer pool.
+ # ~~add LRU aglorithm to secondary buffer pool.~~
  # add secondary buffer pool status info to INFORMATION_SCHEMA.
   
