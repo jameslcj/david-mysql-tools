@@ -26,6 +26,12 @@ Created 11/17/1995 Heikki Tuuri
 #ifndef buf0types_h
 #define buf0types_h
 
+/** secondary buffer pool statistics struct */
+typedef struct buf_sec_pool_stat_struct buf_sec_pool_stat_t;
+/** secondary buffer pool block */
+typedef struct buf_sec_block_struct	buf_sec_block_t;
+/** secondary buffer pool */
+typedef struct buf_sec_pool_struct buf_sec_pool_t;
 /** Buffer page (uncompressed or compressed) */
 typedef	struct buf_page_struct		buf_page_t;
 /** Buffer block for which an uncompressed page exists */

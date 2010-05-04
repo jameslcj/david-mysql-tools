@@ -1307,6 +1307,10 @@ innobase_start_or_create_for_mysql(void)
 
 	ret = buf_pool_init();
 
+	if ( srv_sec_buf_pool_size > 0 ){
+		buf_sec_pool_init();
+	}
+
 	if (ret == NULL) {
 		fprintf(stderr,
 			"InnoDB: Fatal error: cannot allocate the memory"
@@ -2066,6 +2070,8 @@ innobase_shutdown_for_mysql(void)
 	pars_lexer_close();
 	log_mem_free();
 	buf_pool_free();
+	if ( srv_sec_buf_pool_size > 0 )
+		buf_sec_pool_free();
 	ut_free_all_mem();
 	mem_close();
 

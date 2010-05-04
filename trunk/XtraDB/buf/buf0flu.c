@@ -568,6 +568,34 @@ flush:
 				(ulong)buf_block_get_state(block));
 		}
 
+		if ( srv_sec_buf_pool_size > 0 ){
+			/* if enable secondary buffer pool */
+			buf_sec_block_t* b;
+			mutex_enter(&buf_sec_pool->mutex);
+			HASH_SEARCH(hash,buf_sec_pool->page_hash,
+				buf_page_address_fold(block->page.space,block->page.offset),
+				buf_sec_block_t*,b,
+				ut_ad(buf_page_in_file(&block->page)),
+				block->page.space == b->space && block->page.offset == b->offset);
+			if ( b ){
+				/* find in hash table */
+				mutex_enter(&b->mutex);
+				if ((block->page.newest_modification - block->page.oldest_modification) <  0 ){
+					buf_sec_pool->stat.n_page_sync++;
+					ut_memcpy(b->frame,block->frame,UNIV_PAGE_SIZE);
+					b->writes++;
+				}
+				else{
+					buf_sec_pool->stat.n_page_swap++;
+					HASH_DELETE(buf_sec_block_t,hash,buf_sec_pool->page_hash,buf_page_address_fold(block->page.space,block->page.offset),b);
+					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,b);
+					UT_LIST_ADD_FIRST(free,buf_sec_pool->free,b);
+				}
+				mutex_exit(&b->mutex);
+			}
+			mutex_exit(&buf_sec_pool->mutex);
+		}
+
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,
 		       FALSE, buf_block_get_space(block), 0,
 		       buf_block_get_page_no(block), 0, UNIV_PAGE_SIZE,
@@ -808,6 +836,25 @@ buf_flush_write_block_low(
 	}
 
 	if (!srv_use_doublewrite_buf || !trx_doublewrite) {
+		if ( srv_sec_buf_pool_size > 0 ){
+			/* if enable secondary buffer pool */
+			buf_sec_block_t* block;
+			mutex_enter(&buf_sec_pool->mutex);
+			HASH_SEARCH(hash,buf_sec_pool->page_hash,
+				buf_page_address_fold(bpage->space,bpage->offset),
+				buf_sec_block_t*,block,
+				ut_ad(buf_page_in_file(bpage)),
+				block->space == bpage->space && block->offset == bpage->offset);
+			if ( block ){
+				/* find in hash table */
+				buf_sec_pool->stat.n_page_sync++;
+				mutex_enter(&block->mutex);
+				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
+				block->writes++;
+				mutex_exit(&block->mutex);
+			}
+			mutex_exit(&buf_sec_pool->mutex);
+		}
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,
 		       FALSE, buf_page_get_space(bpage), zip_size,
 		       buf_page_get_page_no(bpage), 0,

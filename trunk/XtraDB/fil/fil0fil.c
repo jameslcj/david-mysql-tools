@@ -3422,6 +3422,103 @@ fil_make_ibbackup_old_name(
 #endif /* UNIV_HOTBACKUP */
 
 /********************************************************************//**
+Preloading the tablespace to secondary buffer pool*/
+static
+void
+fil_pre_load_to_secondary_buffer_pool(
+/*=============================*/
+	os_file_t	file,		/*!< in: file of tablespace */
+	const char* dbname,		/*!< in: database name */
+	const char*	tablename,	/*!< in: tablespace to load tpcc.*:test.mysql */
+	ulint space_id)			/*!< in: tablespace space id */
+{
+
+		byte*	buf2;
+		byte*	page;
+		ibool	success = FALSE;
+		char*	token;
+		char	name[100];
+		char	name2[100];
+		char	str[100];
+
+		sprintf(name,"%s.%s",dbname,tablename);
+		sprintf(name2,"%s.*",dbname);
+		ut_strcpy(str,srv_sec_buf_pool_preload_table);
+		token = strtok(str,":");
+		while( token != NULL && !success ){
+			if ( ut_strcmp(token,name) == 0 || ut_strcmp(token,name2) == 0 )
+				success = TRUE;
+			token = strtok(NULL,":");
+		}
+
+		if ( success && UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
+			ulint i;
+			ulint size;
+			ulint size_high;
+			buf_sec_block_t* block;
+
+			os_file_get_size(file,&size,&size_high);
+			ut_a(size % UNIV_PAGE_SIZE == 0 );
+			if ( UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"  InnoDB: preloading table %s.%s to secondary buffer pool.(%.2f%%)\n",dbname,tablename,
+					(100.0*UT_LIST_GET_LEN(buf_sec_pool->LRU)/((UT_LIST_GET_LEN(buf_sec_pool->free)+(UT_LIST_GET_LEN(buf_sec_pool->LRU)))))); 
+			}
+			for ( i = 0; i < (size / UNIV_PAGE_SIZE) ; i++ ){
+				/* Read the first page of the tablespace if the size big enough */
+				buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
+				/* Align the memory for file i/o if we might have O_DIRECT set */
+				page = ut_align(buf2, UNIV_PAGE_SIZE);
+				success = os_file_read(file, page, i*UNIV_PAGE_SIZE, 0, UNIV_PAGE_SIZE);
+				if ( success == TRUE ){
+					if ( mach_read_from_2(page+FIL_PAGE_TYPE) == FIL_PAGE_INDEX ){
+#ifdef UNIV_DEBUG
+						ut_ad(i == mach_read_from_4(page+FIL_PAGE_OFFSET));
+#endif
+						HASH_SEARCH(hash,buf_sec_pool->page_hash,
+											buf_page_address_fold(space_id,i),
+											buf_sec_block_t*,block,
+											ut_ad(1),
+											block->space == space_id && block->offset == i);
+						if ( block ){
+							/* block already preload to secondary buffer pool, skip */
+							continue;
+						}
+						else{
+							if ( UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
+								block = UT_LIST_GET_LAST(buf_sec_pool->free);
+								ut_memcpy(block->frame,page,UNIV_PAGE_SIZE);
+								block->offset = i;
+								block->space = space_id;
+								UT_LIST_REMOVE(free,buf_sec_pool->free,block);
+								UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
+								HASH_INSERT(buf_sec_block_t,hash,buf_sec_pool->page_hash,
+										buf_page_address_fold(block->space, block->offset),
+										block);
+								ut_free(buf2);
+							}
+							else{
+								if ( buf2 )
+									ut_free(buf2);
+								ut_print_timestamp(stderr);
+								fprintf(stderr,"  InnoDB: preloading table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
+								ut_print_timestamp(stderr);
+								fprintf(stderr,"  InnoDB: secondary buffer pool is full, preloading stop.\n");
+								return;
+							}
+						}
+					}
+				}
+				else{
+					if ( buf2 )
+						ut_free(buf2);
+					return;
+				}
+			}
+		}
+}
+
+/********************************************************************//**
 Opens an .ibd file and adds the associated single-table tablespace to the
 InnoDB fil0fil.c data structures. */
 static

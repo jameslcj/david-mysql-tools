@@ -66,6 +66,10 @@ Created 10/10/1995 Heikki Tuuri
 #include "que0types.h"
 #include "trx0types.h"
 
+extern const char* srv_sec_buf_pool_file;
+extern const char* srv_sec_buf_pool_preload_table;
+extern ulint	srv_sec_buf_pool_size;
+
 extern const char*	srv_main_thread_op_info;
 
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
@@ -640,6 +644,12 @@ typedef srv_slot_t	srv_table_t;
 
 /** Status variables to be passed to MySQL */
 struct export_var_struct{
+	ulint innodb_secondary_buffer_pool_pages_reads; /*< buf_sec_pool->stat.n_page_reads */
+	ulint innodb_secondary_buffer_pool_pages_sync; /*< buf_sec_pool->stat.n_page_sync */
+	ulint innodb_secondary_buffer_pool_pages_swap; /*< buf_sec_pool->stat.n_page_swap */
+	ulint innodb_secondary_buffer_pool_pages_made_young; /*< buf_sec_pool->stat.n_page_made_young */
+	ulint innodb_secondary_buffer_pool_pages_skip_unuseful; /*< buf_sec_pool->stat.n_page_skip_unuseful */
+	ulint innodb_secondary_buffer_pool_pages_skip_write_overloaded; /*< buf_sec_pool->stat.n_page_skip_write_overloaded */
 	ulint innodb_data_pending_reads;	/*!< Pending reads */
 	ulint innodb_data_pending_writes;	/*!< Pending writes */
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */

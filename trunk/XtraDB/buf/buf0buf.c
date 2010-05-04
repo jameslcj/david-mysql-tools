@@ -280,6 +280,8 @@ static const int WAIT_FOR_READ	= 5000;
 
 /** The buffer buf_pool of the database */
 UNIV_INTERN buf_pool_t*	buf_pool = NULL;
+/** The buffer buf_sec_pool of the database */
+UNIV_INTERN buf_sec_pool_t*	buf_sec_pool = NULL;
 
 /** mutex protecting the buffer pool struct and control blocks, except the
 read-write lock in them */
@@ -317,6 +319,148 @@ struct buf_chunk_struct{
 	buf_block_t*	blocks;		/*!< array of buffer control blocks */
 };
 #endif /* !UNIV_HOTBACKUP */
+
+
+/*********************************************************************//**
+Prints info of the secondary buffer pool i/o. */
+UNIV_INTERN
+void
+buf_sec_print_io(
+/*=========*/
+	FILE*	file,	/*!< in/out: buffer where to print */
+	double	time_elapsed) 
+{
+	ulint	n_gets_diff;
+	ulint	n_reads_diff;
+
+	ut_ad(buf_sec_pool);
+
+	mutex_enter(&buf_sec_pool->mutex);
+
+	fprintf(file,
+		"Secondary buffer pool size	%lu\n"
+		"Free pages	%lu\n"
+		"LRU pages	%lu\n",
+		(ulong) buf_sec_pool->size,
+		UT_LIST_GET_LEN(buf_sec_pool->free),
+		UT_LIST_GET_LEN(buf_sec_pool->LRU)
+		);
+
+	fprintf(file,
+		"Page reads %lu, sync %lu, swap %lu\n"
+		"Page make young %lu, skip_unuseful %lu, skip_write_overloaded %lu\n",
+		(ulong) buf_sec_pool->stat.n_page_reads,
+		(ulong) buf_sec_pool->stat.n_page_sync,
+		(ulong) buf_sec_pool->stat.n_page_swap,
+		(ulong) buf_sec_pool->stat.n_page_made_young,
+		(ulong) buf_sec_pool->stat.n_page_skip_unuseful,
+		(ulong) buf_sec_pool->stat.n_page_skip_write_overloaded
+		);
+
+	n_gets_diff = buf_pool->stat.n_pages_read - buf_pool->old_stat.n_pages_read;
+	n_reads_diff = buf_sec_pool->stat.n_page_reads - buf_sec_pool->old_stat.n_page_reads;
+
+	if (n_gets_diff && n_reads_diff) {
+		fprintf(file,
+			"Secondary buffer pool hit rate %lu / 1000 (in %.2f sec)\n"
+			"%.2f reads/s, %.2f sync/s, %.2f swap/s (in %.2f sec)\n",
+			(ulong)
+			(1000 - ((1000 * ( n_gets_diff - n_reads_diff )))
+				 / n_gets_diff
+			),
+			time_elapsed,
+			n_reads_diff / time_elapsed,
+			( buf_sec_pool->stat.n_page_sync - buf_sec_pool->old_stat.n_page_sync ) / time_elapsed,
+			( buf_sec_pool->stat.n_page_swap - buf_sec_pool->old_stat.n_page_swap ) / time_elapsed,
+			time_elapsed
+			);
+	} else {
+		fputs("No secondary buffer pool page gets since the last printout\n",
+		      file);
+	}
+
+	mutex_exit(&buf_sec_pool->mutex);
+}
+
+/*********************************************************************//**
+Initialize the secondary buffer pool block struct */
+UNIV_INTERN
+static void
+buf_sec_block_init(
+/*=======================*/
+	buf_sec_block_t* block,	/*!< in: pointer to control block */ 
+	byte* frame)			/*!< in: point to buffer frame */
+{
+	UNIV_MEM_DESC(frame, UNIV_PAGE_SIZE, block);
+
+	block->frame = frame;
+	block->access_time = 0;
+	mutex_create(&block->mutex,SYNC_BUF_BLOCK);
+}
+
+/********************************************************************//**
+Frees the buffer pool at shutdown.  This must not be invoked before
+freeing all mutexes. */
+UNIV_INTERN
+void
+buf_sec_pool_free(void)
+/*===============*/
+{
+
+	ut_mmap_free_low(buf_sec_pool->mem, srv_sec_buf_pool_size);
+	hash_table_free(buf_sec_pool->page_hash);
+	ut_free(buf_sec_pool);
+
+	buf_sec_pool = NULL;
+}
+
+/*********************************************************************//**
+*/
+UNIV_INTERN
+void
+buf_sec_pool_init()
+{
+	ulint i;
+	buf_sec_block_t* block;
+	byte*  mem;
+
+	buf_sec_pool = malloc(sizeof(buf_sec_pool_t));
+
+	mutex_create(&buf_sec_pool->mutex,SYNC_BUF_BLOCK);
+
+	mutex_enter(&buf_sec_pool->mutex);
+
+	UT_LIST_INIT(buf_sec_pool->free);
+	UT_LIST_INIT(buf_sec_pool->LRU);
+	buf_sec_pool->size = srv_sec_buf_pool_size >> UNIV_PAGE_SIZE_SHIFT;
+	buf_sec_pool->page_hash = hash_create(2 * buf_sec_pool->size);
+
+	mem = ut_mmap_alloc_low(srv_sec_buf_pool_size,FALSE,TRUE,srv_sec_buf_pool_file);
+	ut_a(mem);
+	ut_ad(mem+srv_sec_buf_pool_size-1);
+	buf_sec_pool->mem = mem;
+	if ( mem == NULL){
+		srv_sec_buf_pool_size = 0;
+		ut_print_timestamp(stderr);
+		fprintf(stderr," InnoDB: Warning: secondary buffer pool is disable\n");
+	}
+	
+	for (i = 0; i <  buf_sec_pool->size; i++){
+		ut_ad(&mem[i*UNIV_PAGE_SIZE]);
+		ut_ad(&mem[i*UNIV_PAGE_SIZE+UNIV_PAGE_SIZE-1]);
+		block = malloc(sizeof(buf_sec_block_t));
+		buf_sec_block_init(block,mem + i*UNIV_PAGE_SIZE);
+		UT_LIST_ADD_LAST(free,buf_sec_pool->free,block);
+	}
+
+	memset(&buf_sec_pool->stat,0x00,sizeof(buf_sec_pool->stat));
+	memset(&buf_sec_pool->old_stat,0x00,sizeof(buf_sec_pool->stat));
+	
+	mutex_exit(&buf_sec_pool->mutex);
+
+
+}
+
 
 /********************************************************************//**
 Calculates a page checksum which is stored to the page when it is written
@@ -4292,6 +4436,13 @@ buf_print_io(
 		buf_LRU_stat_sum.io, buf_LRU_stat_cur.io,
 		buf_LRU_stat_sum.unzip, buf_LRU_stat_cur.unzip);
 
+	if ( srv_sec_buf_pool_size > 0 ){
+		fputs("----------------------\n"
+			  "SECONDARY BUFFER POOL\n"
+			  "----------------------\n", file);
+		buf_sec_print_io(file,time_elapsed);
+	}
+
 	buf_refresh_io_stats();
 	//buf_pool_mutex_exit();
 	mutex_exit(&LRU_list_mutex);
@@ -4309,6 +4460,8 @@ buf_refresh_io_stats(void)
 {
 	buf_pool->last_printout_time = time(NULL);
 	buf_pool->old_stat = buf_pool->stat;
+	if ( srv_sec_buf_pool_size > 0 )
+		buf_sec_pool->old_stat = buf_sec_pool->stat;
 }
 
 /*********************************************************************//**
