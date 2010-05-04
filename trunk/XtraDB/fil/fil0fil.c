@@ -3963,6 +3963,155 @@ next_datadir_item:
 	return(err);
 }
 
+UNIV_INTERN
+void
+fil_pre_load_tablespaces(void){
+	int		ret;
+	char*		dbpath		= NULL;
+	ulint		dbpath_len	= 100;
+	os_file_dir_t	dir;
+	os_file_dir_t	dbdir;
+	os_file_stat_t	dbinfo;
+	os_file_stat_t	fileinfo;
+	ulint		err		= DB_SUCCESS;
+
+	if ( srv_sec_buf_pool_size == 0 ){
+		return;
+	}
+
+	/* The datadir of MySQL is always the default directory of mysqld */
+
+	dir = os_file_opendir(fil_path_to_mysql_datadir, TRUE);
+
+	if (dir == NULL) {
+
+		return;
+	}
+
+	dbpath = mem_alloc(dbpath_len);
+
+	/* Scan all directories under the datadir. They are the database
+	directories of MySQL. */
+
+	ret = fil_file_readdir_next_file(&err, fil_path_to_mysql_datadir, dir,
+					 &dbinfo);
+	while (ret == 0) {
+		ulint len;
+		/* printf("Looking at %s in datadir\n", dbinfo.name); */
+
+		if (dbinfo.type == OS_FILE_TYPE_FILE
+		    || dbinfo.type == OS_FILE_TYPE_UNKNOWN) {
+
+			goto next_datadir_item;
+		}
+
+		/* We found a symlink or a directory; try opening it to see
+		if a symlink is a directory */
+
+		len = strlen(fil_path_to_mysql_datadir)
+			+ strlen (dbinfo.name) + 2;
+		if (len > dbpath_len) {
+			dbpath_len = len;
+
+			if (dbpath) {
+				mem_free(dbpath);
+			}
+
+			dbpath = mem_alloc(dbpath_len);
+		}
+		sprintf(dbpath, "%s/%s", fil_path_to_mysql_datadir,
+			dbinfo.name);
+		srv_normalize_path_for_win(dbpath);
+
+		dbdir = os_file_opendir(dbpath, FALSE);
+
+		if (dbdir != NULL) {
+			/* printf("Opened dir %s\n", dbinfo.name); */
+
+			/* We found a database directory; loop through it,
+			looking for possible .ibd files in it */
+
+			ret = fil_file_readdir_next_file(&err, dbpath, dbdir,
+							 &fileinfo);
+			while (ret == 0) {
+				/* printf(
+				"     Looking at file %s\n", fileinfo.name); */
+
+				if (fileinfo.type == OS_FILE_TYPE_DIR) {
+
+					goto next_file_item;
+				}
+
+				/* We found a symlink or a file */
+				if (strlen(fileinfo.name) > 4
+				    && 0 == strcmp(fileinfo.name
+						   + strlen(fileinfo.name) - 4,
+						   ".ibd")) {
+					/* The name ends in .ibd; try opening
+					the file */
+				   	char*		filepath;
+					os_file_t	file;
+					ibool		success;
+					byte*		buf2;
+					byte*		page;
+					ulint		space_id;
+					/* Initialize file path */
+					filepath = mem_alloc(strlen(dbinfo.name) + strlen(fileinfo.name)
+									+ strlen(fil_path_to_mysql_datadir) + 3);
+					sprintf(filepath, "%s/%s/%s", fil_path_to_mysql_datadir, dbinfo.name,
+						fileinfo.name);
+					srv_normalize_path_for_win(filepath);
+					dict_casedn_str(filepath);
+
+					/* Get file handler */
+					file = os_file_create_simple_no_error_handling(
+						filepath, OS_FILE_OPEN, OS_FILE_READ_ONLY, &success);
+
+					/* Get space id */
+					buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
+					/* Align the memory for file i/o if we might have O_DIRECT set */
+					page = ut_align(buf2, UNIV_PAGE_SIZE);
+					os_file_read(file, page, 0, 0, UNIV_PAGE_SIZE);
+					/* We have to read the tablespace id from the file */
+					space_id = fsp_header_get_space_id(page);
+
+					/* Preload to secondary buffer pool */
+					fil_pre_load_to_secondary_buffer_pool(
+						file,dbinfo.name,strtok(fileinfo.name,"."),space_id);
+					
+					os_file_close(file);
+					ut_free(buf2);
+					mem_free(filepath);
+				}
+next_file_item:
+				ret = fil_file_readdir_next_file(&err,
+								 dbpath, dbdir,
+								 &fileinfo);
+			}
+
+			if (0 != os_file_closedir(dbdir)) {
+				fputs("InnoDB: Warning: could not"
+				      " close database directory ", stderr);
+				ut_print_filename(stderr, dbpath);
+				putc('\n', stderr);
+
+				err = DB_ERROR;
+			}
+		}
+
+next_datadir_item:
+		ret = fil_file_readdir_next_file(&err,
+						 fil_path_to_mysql_datadir,
+						 dir, &dbinfo);
+	}
+	if ( UT_LIST_GET_LEN(buf_sec_pool->free) > 0 && UT_LIST_GET_LEN(buf_sec_pool->LRU) != 0 ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  InnoDB: preloading to secondary buffer pool finish.\n");
+	}
+
+	mem_free(dbpath);
+}
+
 /********************************************************************//**
 If we need crash recovery, and we have called
 fil_load_single_table_tablespaces() and dict_load_single_table_tablespaces(),
