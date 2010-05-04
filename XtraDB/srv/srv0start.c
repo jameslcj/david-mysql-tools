@@ -1642,6 +1642,10 @@ innobase_start_or_create_for_mysql(void)
 		we have finished the recovery process so that the
 		image of TRX_SYS_PAGE_NO is not stale. */
 		trx_sys_file_format_tag_init();
+
+		if ( srv_sec_buf_pool_size > 0 && UT_LIST_GET_LEN(buf_sec_pool->LRU) == 0 ){
+			fil_pre_load_tablespaces();
+		}
 	}
 
 	if (!create_new_db && sum_of_new_sizes > 0) {
