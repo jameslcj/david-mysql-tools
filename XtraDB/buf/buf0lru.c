@@ -1904,6 +1904,67 @@ buf_LRU_block_remove_hashed_page(
 	HASH_DELETE(buf_page_t, hash, buf_pool->page_hash,
 		    buf_page_address_fold(bpage->space, bpage->offset),
 		    bpage);
+
+	/* if secondary buffer pool is enable */
+	if ( srv_sec_buf_pool_size > 0 
+		&& bpage->offset > 3
+		&& bpage->space != 0
+		&& buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE
+		)
+	{
+		mutex_enter(&buf_sec_pool->mutex);
+		if ( bpage->access_time == 0 ){
+			buf_sec_pool->stat.n_page_skip_unuseful++;
+		}
+		else if ( (100 * UT_LIST_GET_LEN(buf_pool->flush_list))	/ (1 + UT_LIST_GET_LEN(buf_pool->LRU)
+		   + UT_LIST_GET_LEN(buf_pool->free)) > srv_max_buf_pool_modified_pct ){
+			  buf_sec_pool->stat.n_page_skip_write_overloaded++;
+		}
+		else{
+			buf_sec_block_t* block;
+			/* check if bpage already in secondary buffer pool */
+			HASH_SEARCH(hash,buf_sec_pool->page_hash,
+					buf_page_address_fold(bpage->space,bpage->offset),
+					buf_sec_block_t*,block,
+					ut_ad(buf_page_in_file(bpage)),
+					block->space == bpage->space && block->offset == bpage->offset);
+			if ( block == NULL ){
+				if ( UT_LIST_GET_LEN(buf_sec_pool->free) == 0 ){
+					buf_sec_pool->stat.n_page_swap++;
+					/* if free list is full, we should remove the last block in LRU */
+					block = UT_LIST_GET_LAST(buf_sec_pool->LRU);
+					mutex_enter(&block->mutex);
+					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
+					UT_LIST_ADD_LAST(free,buf_sec_pool->free,block);
+					/* remove from current hash table */
+					HASH_DELETE(buf_sec_block_t,hash,buf_sec_pool->page_hash,
+						buf_page_address_fold(block->space, block->offset),
+						block);
+					mutex_exit(&block->mutex);
+				}
+				buf_sec_pool->stat.n_page_sync++;
+				block = UT_LIST_GET_LAST(buf_sec_pool->free);
+				ut_ad(block && block->frame);
+				mutex_enter(&block->mutex);
+				/* initialize the block */
+				block->access_time = 0;
+				block->space = bpage->space;
+				block->offset = bpage->offset;
+				block->reads = 0;
+				block->hash = NULL;
+				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
+				/* insert new frame into hash table */
+				HASH_INSERT(buf_sec_block_t,hash,buf_sec_pool->page_hash,
+						buf_page_address_fold(bpage->space, bpage->offset),
+						block);
+				UT_LIST_REMOVE(free,buf_sec_pool->free,block);
+				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
+				mutex_exit(&block->mutex);
+			}
+		}
+		mutex_exit(&buf_sec_pool->mutex);
+	}
+
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_ZIP_PAGE:
 		ut_ad(!bpage->in_free_list);

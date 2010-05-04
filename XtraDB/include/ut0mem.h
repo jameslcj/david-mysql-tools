@@ -77,6 +77,28 @@ void
 ut_mem_init(void);
 /*=============*/
 
+/**************************************************************************
+Free memory using mmap.*/
+void
+ut_mmap_free_low(
+/*==========*/
+	void*	mem,	/* in: mmap memory */
+	int		n);	/* in: number of bytes to free */
+
+/**************************************************************************
+Allocates memory using mmap.*/
+void*
+ut_mmap_alloc_low(
+/*==========*/
+				/* out, own: allocated memory */
+	ulint	n,		/* in: number of bytes to allocate */
+	ibool	set_to_zero,	/* in: TRUE if allocated memory should be
+				set to zero if UNIV_SET_MEM_TO_ZERO is
+				defined */
+	ibool	assert_on_error,/* in: if TRUE, we crash mysqld if the
+				memory cannot be allocated */
+	const char* filename); /* in: mmap file name */
+
 /**********************************************************************//**
 Allocates memory. Sets it also to zero if UNIV_SET_MEM_TO_ZERO is
 defined and set_to_zero is TRUE.
@@ -129,8 +151,7 @@ man realloc in Linux, 2004:
 
        realloc()  changes the size of the memory block pointed to
        by ptr to size bytes.  The contents will be  unchanged  to
-       the minimum of the old and new sizes; newly allocated mem­
-       ory will be uninitialized.  If ptr is NULL,  the	 call  is
+       the minimum of the old and new sizes; newly allocated mem?       ory will be uninitialized.  If ptr is NULL,  the	 call  is
        equivalent  to malloc(size); if size is equal to zero, the
        call is equivalent to free(ptr).	 Unless ptr is	NULL,  it
        must  have  been	 returned by an earlier call to malloc(),

@@ -80,6 +80,7 @@ buf_read_page_low(
 {
 	buf_page_t*	bpage;
 	ulint		wake_later;
+	buf_sec_block_t* block = NULL;
 
 	*err = DB_SUCCESS;
 
@@ -183,9 +184,67 @@ not_to_recover:
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
-		*err = _fil_io(OS_FILE_READ | wake_later,
-			      sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
-			      ((buf_block_t*) bpage)->frame, bpage, trx);
+		if ( srv_sec_buf_pool_size > 0 && space != 0 && offset > 3 ){
+			ut_ad(!mutex_own(buf_page_get_mutex(bpage)));
+			mutex_enter(&buf_sec_pool->mutex);
+			HASH_SEARCH(hash,buf_sec_pool->page_hash,
+				buf_page_address_fold(space,offset),
+				buf_sec_block_t*,block,
+				ut_ad(buf_page_in_file(bpage)),
+				block->space == space && block->offset == offset);
+			if ( block ){
+#ifdef UNIV_DEBUG
+				ulint	res;
+				uint	pos = 0;
+				//buf_block_t* block;
+#endif
+				ut_ad(block->space == bpage->space && block->offset == bpage->offset );
+				ut_ad(block->frame);
+				buf_sec_pool->stat.n_page_reads++;
+				mutex_enter(&block->mutex);
+				mutex_enter(buf_page_get_mutex(bpage));
+#ifdef UNIV_DEBUG
+				/*res = fil_io(OS_FILE_READ | wake_later,
+					  sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
+					  ((buf_block_t*) bpage)->frame, bpage);
+				ut_ad(((buf_block_t*)bpage)->frame);
+				ut_ad(res == DB_SUCCESS);
+				while( pos < UNIV_PAGE_SIZE ){
+					uint a;
+					uint b;
+					a = ((buf_block_t*)bpage)->frame[pos+1000];
+					b = block->frame[pos+1000];
+					ut_ad( a == b );
+					//ut_ad(((buf_block_t*)bpage)->frame[pos] == block->frame[pos]);
+					pos++;
+				}*/
+				//res = memcmp(((buf_block_t*)bpage)->frame,block->frame,UNIV_PAGE_SIZE-1);
+				//ut_ad(res == 0);
+#endif
+				ut_memcpy(((buf_block_t*)bpage)->frame,block->frame,UNIV_PAGE_SIZE);
+				block->reads++;
+				block->access_time = ut_time_ms();
+				bpage->io_fix = BUF_IO_READ;
+				/* add block to LRU FIRST */
+				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
+				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
+				buf_sec_pool->stat.n_page_made_young++;
+				mutex_exit(buf_page_get_mutex(bpage));
+				mutex_exit(&block->mutex);
+				mutex_exit(&buf_sec_pool->mutex);
+				if ( !sync )
+					buf_page_io_complete(bpage);
+			}
+			else
+				mutex_exit(&buf_sec_pool->mutex);
+
+		}
+
+		if ( block == NULL ){
+			*err = fil_io(OS_FILE_READ | wake_later,
+					  sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
+					  ((buf_block_t*) bpage)->frame, bpage);
+		}
 	}
 
 	if (srv_pass_corrupt_table) {

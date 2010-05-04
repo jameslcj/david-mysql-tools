@@ -32,6 +32,7 @@ Created 5/11/1994 Heikki Tuuri
 #ifndef UNIV_HOTBACKUP
 # include "os0thread.h"
 # include "srv0srv.h"
+# include "os0file.h"
 
 #include <stdlib.h>
 
@@ -68,6 +69,88 @@ static ibool  ut_mem_block_list_inited = FALSE;
 /** A dummy pointer for generating a null pointer exception in
 ut_malloc_low() */
 static ulint*	ut_mem_null_ptr	= NULL;
+
+/**************************************************************************
+Free memory using mmap.*/
+void
+ut_mmap_free_low(
+/*==========*/
+	void*	mem,	/* in: mmap memory */
+	int		n)	/* in: number of bytes to free */
+{
+	int ret;
+#ifdef __WIN__
+	ret = UnmapViewOfFile(mem);
+	if ( ret == 0 ){
+#else
+	ret = munmap(mem,n);
+	if ( ret == -1 ){
+#endif
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  InnoDB: Error: free secondary buffer pool failed\n");
+		return;
+	}
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"  InnoDB: free secondary buffer pool compelete\n");
+}
+
+/**************************************************************************
+Allocates memory using mmap.*/
+void*
+ut_mmap_alloc_low(
+/*==========*/
+				/* out, own: allocated memory */
+	ulint	n,		/* in: number of bytes to allocate */
+	ibool	set_to_zero,	/* in: TRUE if allocated memory should be
+				set to zero if UNIV_SET_MEM_TO_ZERO is
+				defined */
+	ibool	assert_on_error,/* in: if TRUE, we crash mysqld if the
+				memory cannot be allocated */
+	const char* filename) /* in: mmap file name */
+{
+	void*	ret;
+	os_file_t	fd;
+#ifdef __WIN__
+	os_file_t	fd_mapping;
+	fd = CreateFile(filename,GENERIC_READ | GENERIC_WRITE | FILE_SHARE_WRITE ,0,0,OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_WRITE_THROUGH,0);
+	if ( fd == -1 ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  InnoDB: Error: create secondary buffer pool failed\n");
+		return (NULL);
+	}
+	/* mapping file to memory */
+	fd_mapping = CreateFileMapping(fd,0,PAGE_READWRITE,0,n,"Secondary buffer pool");
+	if ( fd_mapping == 0 ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  Innodb: Error: create secondary buffer pool mapping file failed\n");
+		return (NULL);
+	}
+	ret = MapViewOfFile(fd_mapping,FILE_MAP_ALL_ACCESS,0,0,n ); 
+	CloseHandle(fd);
+	CloseHandle(fd_mapping);		
+	if ( ret == NULL ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  Innodb: Error: create secondary buffer pool failed\n");
+		return (NULL);
+	}
+#else
+	fd = open(filename,O_RDWR | O_DIRECT);
+	if ( !fd ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  InnoDB: Error: create secondary buffer pool file failed\n");
+		return (NULL);
+	}
+	ret = mmap(NULL,n,PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if ( ret == MAP_FAILED ) {
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"  Innodb: Error: create secondary buffer pool failed\n");
+		return (NULL);
+	}
+#endif
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"  InnoDB: create secondary buffer pool success\n");
+	return ret;
+}
 
 /**********************************************************************//**
 Initializes the mem block list at database startup. */

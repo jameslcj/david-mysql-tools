@@ -175,6 +175,10 @@ static ulong innobase_page_size;
 static my_bool innobase_thread_concurrency_timer_based;
 static long long innobase_buffer_pool_size, innobase_log_file_size;
 
+static long long innobase_secondary_buffer_pool_size;
+static char*	innobase_secondary_buffer_pool_file	= NULL;
+static char*	innobase_secondary_buffer_pool_preload_table = NULL;
+
 /** Percentage of the buffer pool to reserve for 'old' blocks.
 Connected to buf_LRU_old_ratio. */
 static uint innobase_old_blocks_pct;
@@ -510,6 +514,18 @@ innobase_commit_low(
 	trx_t*	trx);	/*!< in: transaction handle */
 
 static SHOW_VAR innodb_status_variables[]= {
+  {"secondary_buffer_pool_reads",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_reads,	  SHOW_LONG},
+  {"secondary_buffer_pool_sync",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_sync,	  SHOW_LONG},
+  {"secondary_buffer_pool_swap",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_swap,	  SHOW_LONG},
+  {"secondary_buffer_pool_make_young",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_made_young,	  SHOW_LONG},
+  {"secondary_buffer_pool_skip_unuseful",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_skip_unuseful,	  SHOW_LONG},
+  {"secondary_buffer_pool_skip_write_overloaded",
+  (char*) &export_vars.innodb_secondary_buffer_pool_pages_skip_write_overloaded,	  SHOW_LONG},
   {"buffer_pool_pages_data",
   (char*) &export_vars.innodb_buffer_pool_pages_data,	  SHOW_LONG},
   {"buffer_pool_pages_dirty",
@@ -2358,6 +2374,10 @@ innobase_change_buffering_inited_ok:
 	srv_log_buffer_size = (ulint) innobase_log_buffer_size;
 
 	srv_buf_pool_size = (ulint) innobase_buffer_pool_size;
+
+	srv_sec_buf_pool_size = (ulint) innobase_secondary_buffer_pool_size;
+	srv_sec_buf_pool_file = innobase_secondary_buffer_pool_file;
+	srv_sec_buf_pool_preload_table = innobase_secondary_buffer_pool_preload_table;
 
 	srv_mem_pool_size = (ulint) innobase_additional_mem_pool_size;
 
@@ -10690,6 +10710,19 @@ static MYSQL_SYSVAR_ULONG(read_ahead_threshold, srv_read_ahead_threshold,
   "trigger a readahead.",
   NULL, NULL, 56, 0, 64, 0);
 
+static MYSQL_SYSVAR_LONGLONG(secondary_buffer_pool_size, innobase_secondary_buffer_pool_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "The size of the secondary memory buffer InnoDB uses to cache data and indexes of its tables.",
+  NULL, NULL, 0L, 0L, LONGLONG_MAX, 1024*1024L);
+
+static MYSQL_SYSVAR_STR(secondary_buffer_pool_file, innobase_secondary_buffer_pool_file,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Path to InnoDB secondary buffer pool files.", NULL, NULL, "ib_sbpfile");
+
+static MYSQL_SYSVAR_STR(secondary_buffer_pool_preload_table, innobase_secondary_buffer_pool_preload_table,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Preload table to InnoDB secondary buffer pool", NULL, NULL, "");
+
 static MYSQL_SYSVAR_LONGLONG(ibuf_max_size, srv_ibuf_max_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The maximum size of the insert buffer. (in bytes)",
@@ -10813,6 +10846,9 @@ static	MYSQL_SYSVAR_ULONG(pass_corrupt_table, srv_pass_corrupt_table,
   NULL, NULL, 0, 0, 1, 0);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(secondary_buffer_pool_preload_table),
+  MYSQL_SYSVAR(secondary_buffer_pool_size),
+  MYSQL_SYSVAR(secondary_buffer_pool_file),
   MYSQL_SYSVAR(page_size),
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(autoextend_increment),

@@ -59,6 +59,8 @@ Created 11/5/1995 Heikki Tuuri
 /* @} */
 
 extern buf_pool_t*	buf_pool;	/*!< The buffer pool of the database */
+extern buf_sec_pool_t* buf_sec_pool; /*!< The secondary buffer pool of the database */
+
 #ifdef UNIV_DEBUG
 extern ibool		buf_debug_prints;/*!< If this is set TRUE, the program
 					prints info whenever read or flush
@@ -99,6 +101,37 @@ enum buf_page_state {
 	BUF_BLOCK_REMOVE_HASH		/*!< hash index should be removed
 					before putting to the free list */
 };
+
+/*********************************************************************//**
+Prints info of the secondary buffer pool i/o. */
+UNIV_INTERN
+void
+buf_sec_print_io(
+/*=========*/
+	FILE*	file,	/*!< in/out: buffer where to print */
+	double	time_elapsed);
+/********************************************************************//**
+Frees the secondary buffer pool at shutdown.  This must not be invoked before
+freeing all mutexes. */
+UNIV_INTERN
+void
+buf_sec_pool_free(void);
+/*===============*/
+/********************************************************************//**
+Creates the buffer pool.
+@return	own: buf_sec_pool object, NULL if not enough memory or error */
+UNIV_INTERN
+void
+buf_sec_pool_init(void);
+/*===============*/
+/*********************************************************************//**
+Initialize the secondary buffer pool block struct */
+UNIV_INTERN
+static void
+buf_sec_block_init(
+/*=======================*/
+	buf_sec_block_t* block,	/*!< in: pointer to control block */ 
+	byte* frame);			/*!< in: point to buffer frame */
 
 #ifndef UNIV_HOTBACKUP
 /********************************************************************//**
@@ -1033,7 +1066,61 @@ buf_get_free_list_len(void);
 /*=======================*/
 #endif /* !UNIV_HOTBACKUP */
 
+/** The common buffer control block structure
+for secondary frames */
+struct buf_sec_block_struct{
+	unsigned space:32;	/*!< tablespace id */
+	unsigned offset:32;	/*!< page number */
+	unsigned reads:32;	/*!< read count */
+	unsigned writes:32;	/*!< write count */
+	unsigned access_time:32;	/*!< first access time, zero if
+								never access */
+	UT_LIST_NODE_T(buf_sec_block_t) LRU;	/*< LRU list */
+	UT_LIST_NODE_T(buf_sec_block_t) free;	/*< free list */
+	buf_sec_block_t* hash;	/*!< hash chain */
+	byte*	frame; /*!< page frame */
+	mutex_t		mutex;		/*!< mutex protecting this block*/
+	unsigned	lock_hash_val:32;/*!< hashed value of the page address
+					in the record lock hash table */
+};
 
+struct buf_sec_pool_stat_struct{
+	ulint	n_page_reads;	
+					/*!< number read operations */
+	ulint	n_page_sync;
+					/*!< number write operations */
+	ulint	n_page_swap;
+					/*!< number swap operations */
+	ulint	n_page_made_young;
+					/*!< number make young operations */
+	ulint	n_page_skip_unuseful;
+					/*!< number skip to secondary buffer pool 
+					because of unusefule page, access_time = 0 */
+	ulint	n_page_skip_write_overloaded;
+					/*!< number skip to secondary buffer pool
+					because busy write */
+};
+
+struct buf_sec_pool_struct{
+	/** secondary buffer pool fields */
+	UT_LIST_BASE_NODE_T(buf_sec_block_t) free;
+					/*!< base node of the free
+					block list */
+	UT_LIST_BASE_NODE_T(buf_sec_block_t) LRU;
+					/*!< base node of the LRU list */
+	hash_table_t*	page_hash;
+					/*!< hash table of buf_sec_block_t blocks */
+	ulint			size;
+					/*!< pool size */
+	mutex_t			mutex;
+					/*!< mutex protecting free ,LRU, page_hash */
+	void*			mem;
+	buf_sec_pool_stat_t stat;
+					/*!< current statistics */
+	buf_sec_pool_stat_t old_stat;
+					/*!< old statistics */
+
+};
 /** The common buffer control block structure
 for compressed and uncompressed frames */
 
