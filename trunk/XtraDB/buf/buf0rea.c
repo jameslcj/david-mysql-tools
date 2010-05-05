@@ -233,7 +233,7 @@ not_to_recover:
 				mutex_exit(&block->mutex);
 				mutex_exit(&buf_sec_pool->mutex);
 				if ( !sync )
-					buf_page_io_complete(bpage);
+					buf_page_io_complete(bpage,trx);
 			}
 			else
 				mutex_exit(&buf_sec_pool->mutex);
