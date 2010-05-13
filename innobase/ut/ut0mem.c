@@ -140,7 +140,7 @@ ut_mmap_alloc_low(
 		fprintf(stderr,"  InnoDB: Error: create secondary buffer pool file failed\n");
 		return (NULL);
 	}
-	ret = mmap(NULL,n+ sizeof(ut_mem_block_t),PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	ret = mmap(NULL,n,PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if ( ret == MAP_FAILED ) {
 		ut_print_timestamp(stderr);
 		fprintf(stderr,"  Innodb: Error: create secondary buffer pool failed\n");
