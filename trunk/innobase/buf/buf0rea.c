@@ -143,7 +143,7 @@ buf_read_page_low(
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
-		if ( srv_sec_buf_pool_size > 0 && space != 0 && offset > 3 ){
+		if ( srv_sec_buf_pool_size > 0 ){
 			ut_ad(!mutex_own(buf_page_get_mutex(bpage)));
 			mutex_enter(&buf_sec_pool->mutex);
 			HASH_SEARCH(hash,buf_sec_pool->page_hash,
