@@ -397,6 +397,7 @@ enum srv_thread_type {
 	SRV_RECOVERY,	/**< threads finishing a recovery */
 	SRV_INSERT,	/**< thread flushing the insert buffer to disk */
 #endif
+	SRV_SBP,
 	SRV_MASTER	/**< the master thread, (whose type number must
 			be biggest) */
 };
@@ -461,6 +462,12 @@ srv_release_threads(
 /*================*/
 	enum srv_thread_type	type,	/*!< in: thread type */
 	ulint			n);	/*!< in: number of threads to release */
+/*********************************************************************//**
+The thread controlling secondary buffer pool.*/
+os_thread_ret_t
+srv_sbp_thread(
+/*==============*/
+void*	arg );
 /*********************************************************************//**
 The master thread controlling the server.
 @return	a dummy parameter */
