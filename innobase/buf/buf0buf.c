@@ -348,13 +348,14 @@ static void
 buf_sec_block_init(
 /*=======================*/
 	buf_sec_block_t* block,	/*!< in: pointer to control block */ 
-	byte* frame)			/*!< in: point to buffer frame */
+	ulint offset)			/*!< in: offset in the secondary buffer pool file */
 {
 	UNIV_MEM_DESC(frame, UNIV_PAGE_SIZE, block);
 
-	block->frame = frame;
+	block->file_offset = offset & 0xFFFFFFFFUL;
+	block->file_offset_high = (offset & 0x00000000UL)>>32;
 	block->access_time = 0;
-	mutex_create(&block->mutex,SYNC_BUF_BLOCK);
+//	mutex_create(&block->mutex,SYNC_BUF_BLOCK);
 }
 
 /********************************************************************//**
@@ -366,12 +367,13 @@ buf_sec_pool_free(void)
 /*===============*/
 {
 
-	ut_mmap_free_low(buf_sec_pool->mem, srv_sec_buf_pool_size);
+	os_file_close(buf_sec_pool->handle);
 	hash_table_free(buf_sec_pool->page_hash);
 	ut_free(buf_sec_pool);
 
 	buf_sec_pool = NULL;
 }
+
 
 /*********************************************************************//**
 */
@@ -381,7 +383,7 @@ buf_sec_pool_init()
 {
 	ulint i;
 	buf_sec_block_t* block;
-	byte*  mem;
+	ibool ret;
 
 	buf_sec_pool = malloc(sizeof(buf_sec_pool_t));
 
@@ -394,7 +396,8 @@ buf_sec_pool_init()
 	buf_sec_pool->size = srv_sec_buf_pool_size >> UNIV_PAGE_SIZE_SHIFT;
 	buf_sec_pool->page_hash = hash_create(2 * buf_sec_pool->size);
 
-	mem = ut_mmap_alloc_low(srv_sec_buf_pool_size,FALSE,TRUE,srv_sec_buf_pool_file);
+
+	/*mem = ut_mmap_alloc_low(srv_sec_buf_pool_size,FALSE,TRUE,srv_sec_buf_pool_file);
 	ut_a(mem);
 	ut_ad(mem+srv_sec_buf_pool_size-1);
 	buf_sec_pool->mem = mem;
@@ -402,13 +405,18 @@ buf_sec_pool_init()
 		srv_sec_buf_pool_size = 0;
 		ut_print_timestamp(stderr);
 		fprintf(stderr," InnoDB: Warning: secondary buffer pool is disable\n");
-	}
+	}*/
+
+#ifdef __WIN__
+	buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);
+#else
+	buf_sec_pool->handle = os_file_create(srv_sec_buf_pool_file,OS_FILE_OPEN,OS_FILE_AIO,OS_DATA_FILE,&ret);
+#endif
+	ut_a(ret);
 	
 	for (i = 0; i <  buf_sec_pool->size; i++){
-		ut_ad(&mem[i*UNIV_PAGE_SIZE]);
-		ut_ad(&mem[i*UNIV_PAGE_SIZE+UNIV_PAGE_SIZE-1]);
 		block = malloc(sizeof(buf_sec_block_t));
-		buf_sec_block_init(block,mem + i*UNIV_PAGE_SIZE);
+		buf_sec_block_init(block,i*UNIV_PAGE_SIZE);
 		UT_LIST_ADD_LAST(free,buf_sec_pool->free,block);
 	}
 

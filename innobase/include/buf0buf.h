@@ -1050,7 +1050,7 @@ static void
 buf_sec_block_init(
 /*=======================*/
 	buf_sec_block_t* block,	/*!< in: pointer to control block */ 
-	byte* frame);			/*!< in: point to buffer frame */
+	ulint offset);			/*!< in: offset in the secondary buffer pool file */
 
 /** The common buffer control block structure
 for secondary frames */
@@ -1064,10 +1064,9 @@ struct buf_sec_block_struct{
 	UT_LIST_NODE_T(buf_sec_block_t) LRU;	/*< LRU list */
 	UT_LIST_NODE_T(buf_sec_block_t) free;	/*< free list */
 	buf_sec_block_t* hash;	/*!< hash chain */
-	byte*	frame; /*!< page frame */
-	mutex_t		mutex;		/*!< mutex protecting this block*/
-	unsigned	lock_hash_val:32;/*!< hashed value of the page address
-					in the record lock hash table */
+	unsigned file_offset:32; /*!< low offset */
+	unsigned file_offset_high:32; /*< high offset */
+	//mutex_t		mutex;		/*!< mutex protecting this block*/
 };
 
 struct buf_sec_pool_stat_struct{
@@ -1100,7 +1099,8 @@ struct buf_sec_pool_struct{
 					/*!< pool size */
 	mutex_t			mutex;
 					/*!< mutex protecting free ,LRU, page_hash */
-	void*			mem;
+	//void*			mem;
+	os_file_t		handle;
 	buf_sec_pool_stat_t stat;
 					/*!< current statistics */
 	buf_sec_pool_stat_t old_stat;

@@ -3110,7 +3110,8 @@ fil_pre_load_to_secondary_buffer_pool(
 			ulint size;
 			ulint size_high;
 			buf_sec_block_t* block;
-
+			ulint	foffset;
+			ulint	foffset_high;
 			os_file_get_size(file,&size,&size_high);
 			ut_a(size % UNIV_PAGE_SIZE == 0 );
 			if ( UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
@@ -3123,7 +3124,9 @@ fil_pre_load_to_secondary_buffer_pool(
 				buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
 				/* Align the memory for file i/o if we might have O_DIRECT set */
 				page = ut_align(buf2, UNIV_PAGE_SIZE);
-				success = os_file_read(file, page, i*UNIV_PAGE_SIZE, 0, UNIV_PAGE_SIZE);
+				foffset = i*UNIV_PAGE_SIZE & 0xFFFFFFFF;
+				foffset_high = ((i*UNIV_PAGE_SIZE) & 0x00000000) >> 32;
+				success = os_file_read(file, page, foffset, foffset_high, UNIV_PAGE_SIZE);
 				if ( success == TRUE ){
 					if ( mach_read_from_2(page+FIL_PAGE_TYPE) == FIL_PAGE_INDEX ){
 #ifdef UNIV_DEBUG
@@ -3141,7 +3144,8 @@ fil_pre_load_to_secondary_buffer_pool(
 						else{
 							if ( UT_LIST_GET_LEN(buf_sec_pool->free) > 0 ){
 								block = UT_LIST_GET_LAST(buf_sec_pool->free);
-								ut_memcpy(block->frame,page,UNIV_PAGE_SIZE);
+								ut_a(os_file_write(srv_sec_buf_pool_file,buf_sec_pool->handle,page,block->file_offset,block->file_offset_high,UNIV_PAGE_SIZE));
+//								ut_memcpy(block->frame,page,UNIV_PAGE_SIZE);
 								block->offset = i;
 								block->space = space_id;
 								UT_LIST_REMOVE(free,buf_sec_pool->free,block);
