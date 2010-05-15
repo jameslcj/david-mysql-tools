@@ -1622,7 +1622,7 @@ innobase_start_or_create_for_mysql(void)
 		image of TRX_SYS_PAGE_NO is not stale. */
 		trx_sys_file_format_tag_init();
 
-		if ( srv_sec_buf_pool_size > 0 && UT_LIST_GET_LEN(buf_sec_pool->LRU) == 0 ){
+		if ( srv_sec_buf_pool_size > 0 ){
 			fil_pre_load_tablespaces();
 		}
 	}

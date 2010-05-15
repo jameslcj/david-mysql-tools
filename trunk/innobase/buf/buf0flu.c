@@ -552,10 +552,10 @@ flush:
 				block->page.space == b->space && block->page.offset == b->offset);
 			if ( b ){
 				/* find in hash table */
-				mutex_enter(&b->mutex);
+//				mutex_enter(&b->mutex);
 				if ((block->page.newest_modification - block->page.oldest_modification) <  0 ){
 					buf_sec_pool->stat.n_page_sync++;
-					ut_memcpy(b->frame,block->frame,UNIV_PAGE_SIZE);
+//					ut_memcpy(b->frame,block->frame,UNIV_PAGE_SIZE);
 					b->writes++;
 				}
 				else{
@@ -564,7 +564,7 @@ flush:
 					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,b);
 					UT_LIST_ADD_FIRST(free,buf_sec_pool->free,b);
 				}
-				mutex_exit(&b->mutex);
+//				mutex_exit(&b->mutex);
 			}
 			mutex_exit(&buf_sec_pool->mutex);
 		}
@@ -817,10 +817,10 @@ buf_flush_write_block_low(
 			if ( block ){
 				/* find in hash table */
 				buf_sec_pool->stat.n_page_sync++;
-				mutex_enter(&block->mutex);
-				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
+//				mutex_enter(&block->mutex);
+//				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
 				block->writes++;
-				mutex_exit(&block->mutex);
+//				mutex_exit(&block->mutex);
 			}
 			mutex_exit(&buf_sec_pool->mutex);
 		}

@@ -441,7 +441,7 @@ next_page:
 		b = UT_LIST_GET_LAST(buf_sec_pool->LRU);
 		
 		while ( b ){
-			mutex_enter(&b->mutex);
+//			mutex_enter(&b->mutex);
 			prev_b = UT_LIST_GET_PREV(LRU,b);
 			if ( b->space == id ){
 				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,b);
@@ -449,7 +449,7 @@ next_page:
 				HASH_DELETE(buf_sec_block_t,hash,buf_sec_pool->page_hash,
 					buf_page_address_fold(b->space,b->offset),b);
 			}
-			mutex_exit(&b->mutex);
+//			mutex_exit(&b->mutex);
 			b = prev_b;
 		}
 
@@ -1801,6 +1801,8 @@ buf_LRU_block_remove_hashed_page(
 		}
 		else{
 			buf_sec_block_t* block;
+			ibool ret;
+			const unsigned char* frame;
 			/* check if bpage already in secondary buffer pool */
 			HASH_SEARCH(hash,buf_sec_pool->page_hash,
 					buf_page_address_fold(bpage->space,bpage->offset),
@@ -1812,33 +1814,36 @@ buf_LRU_block_remove_hashed_page(
 					buf_sec_pool->stat.n_page_swap++;
 					/* if free list is full, we should remove the last block in LRU */
 					block = UT_LIST_GET_LAST(buf_sec_pool->LRU);
-					mutex_enter(&block->mutex);
+//					mutex_enter(&block->mutex);
 					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
 					UT_LIST_ADD_LAST(free,buf_sec_pool->free,block);
 					/* remove from current hash table */
 					HASH_DELETE(buf_sec_block_t,hash,buf_sec_pool->page_hash,
 						buf_page_address_fold(block->space, block->offset),
 						block);
-					mutex_exit(&block->mutex);
+//					mutex_exit(&block->mutex);
 				}
 				buf_sec_pool->stat.n_page_sync++;
 				block = UT_LIST_GET_LAST(buf_sec_pool->free);
-				ut_ad(block && block->frame);
-				mutex_enter(&block->mutex);
+//				ut_ad(block && block->frame);
+//				mutex_enter(&block->mutex);
 				/* initialize the block */
 				block->access_time = 0;
 				block->space = bpage->space;
 				block->offset = bpage->offset;
 				block->reads = 0;
 				block->hash = NULL;
-				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
+//				ut_memcpy(block->frame,((buf_block_t*)bpage)->frame,UNIV_PAGE_SIZE);
+				frame = ((buf_block_t*)bpage)->frame;
+				ret = os_file_write(srv_sec_buf_pool_file,buf_sec_pool->handle,frame,block->file_offset,block->file_offset_high,UNIV_PAGE_SIZE);
+				ut_a(ret);
 				/* insert new frame into hash table */
 				HASH_INSERT(buf_sec_block_t,hash,buf_sec_pool->page_hash,
 						buf_page_address_fold(bpage->space, bpage->offset),
 						block);
 				UT_LIST_REMOVE(free,buf_sec_pool->free,block);
 				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
-				mutex_exit(&block->mutex);
+//				mutex_exit(&block->mutex);
 			}
 		}
 		mutex_exit(&buf_sec_pool->mutex);
