@@ -2318,6 +2318,53 @@ srv_sync_log_buffer_in_background(void)
 }
 
 /*********************************************************************//**
+The thread controlling secondary buffer pool.*/
+os_thread_ret_t
+srv_sbp_thread(
+/*==============*/
+void*	arg __attribute__((unused)))
+			/*!< in: a dummy parameter required by
+			os_thread_create */
+{
+	os_event_t	event;
+	ibool		skip_sleep = FALSE;
+	//srv_main_thread_process_no = os_proc_get_number();
+	//srv_main_thread_id = os_thread_pf(os_thread_get_curr_id());
+
+	srv_table_reserve_slot(SRV_SBP);
+
+	mutex_enter(&kernel_mutex);
+
+	srv_n_threads_active[SRV_SBP]++;
+
+	mutex_exit(&kernel_mutex);
+flush:
+	if ( !skip_sleep ){
+		os_thread_sleep(1000000);
+	}
+suspend:
+	mutex_enter(&kernel_mutex);
+
+	event = srv_suspend_thread();
+
+	mutex_exit(&kernel_mutex);
+
+	os_event_wait(event);
+
+	if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+		/* This is only extra safety, the thread should exit
+		already when the event wait ends */
+
+		os_thread_exit(NULL);
+	}
+
+	/* When there is user activity, InnoDB will set the event and the
+	main thread goes back to loop. */
+
+	goto flush;
+}
+
+/*********************************************************************//**
 The master thread controlling the server.
 @return	a dummy parameter */
 UNIV_INTERN

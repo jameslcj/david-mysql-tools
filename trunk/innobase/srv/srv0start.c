@@ -1675,6 +1675,12 @@ innobase_start_or_create_for_mysql(void)
 	/* Create the thread which warns of long semaphore waits */
 	os_thread_create(&srv_error_monitor_thread, NULL,
 			 thread_ids + 3 + SRV_MAX_N_IO_THREADS);
+
+	if ( srv_sec_buf_pool_size > 0 ){
+		os_thread_create(&srv_sbp_thread, NULL,
+				thread_ids + 4 + SRV_MAX_N_IO_THREADS);
+	}
+
 	srv_is_being_started = FALSE;
 
 	if (trx_doublewrite == NULL) {
@@ -1694,6 +1700,9 @@ innobase_start_or_create_for_mysql(void)
 
 	os_thread_create(&srv_master_thread, NULL, thread_ids
 			 + (1 + SRV_MAX_N_IO_THREADS));
+
+	
+
 #ifdef UNIV_DEBUG
 	/* buf_debug_prints = TRUE; */
 #endif /* UNIV_DEBUG */

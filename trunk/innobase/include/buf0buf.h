@@ -1067,6 +1067,7 @@ struct buf_sec_block_struct{
 	unsigned file_offset:32; /*!< low offset */
 	unsigned file_offset_high:32; /*< high offset */
 	//mutex_t		mutex;		/*!< mutex protecting this block*/
+	byte*			frame;	/* not NULL, if it is in the flush list */
 };
 
 struct buf_sec_pool_stat_struct{
@@ -1093,6 +1094,8 @@ struct buf_sec_pool_struct{
 					block list */
 	UT_LIST_BASE_NODE_T(buf_sec_block_t) LRU;
 					/*!< base node of the LRU list */
+	UT_LIST_BASE_NODE_T(buf_sec_block_t) flush_list;
+					/*!< base node of the Flush list */
 	hash_table_t*	page_hash;
 					/*!< hash table of buf_sec_block_t blocks */
 	ulint			size;
@@ -1105,7 +1108,7 @@ struct buf_sec_pool_struct{
 					/*!< current statistics */
 	buf_sec_pool_stat_t old_stat;
 					/*!< old statistics */
-
+	byte*			frames;
 };
 
 
