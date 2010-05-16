@@ -2318,6 +2318,23 @@ srv_sync_log_buffer_in_background(void)
 }
 
 /*********************************************************************//**
+active sbp background thread */
+UNIV_INTERN
+void
+srv_active_wake_sbp_thread(void)
+/*===============================*/
+{
+	if (srv_n_threads_active[SRV_SBP] == 0) {
+
+		mutex_enter(&kernel_mutex);
+
+		srv_release_threads(SRV_SBP, 1);
+
+		mutex_exit(&kernel_mutex);
+	}
+}
+
+/*********************************************************************//**
 The thread controlling secondary buffer pool.*/
 os_thread_ret_t
 srv_sbp_thread(
@@ -2328,6 +2345,8 @@ void*	arg __attribute__((unused)))
 {
 	os_event_t	event;
 	ibool		skip_sleep = FALSE;
+	uint		len;
+	uint		count = 0;
 	//srv_main_thread_process_no = os_proc_get_number();
 	//srv_main_thread_id = os_thread_pf(os_thread_get_curr_id());
 
@@ -2339,9 +2358,22 @@ void*	arg __attribute__((unused)))
 
 	mutex_exit(&kernel_mutex);
 flush:
+	len = buf_flush_sbp_buffered_writes();
+	skip_sleep = len > 32 ? TRUE : FALSE;
 	if ( !skip_sleep ){
 		os_thread_sleep(1000000);
 	}
+	if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+		/* This is only extra safety, the thread should exit
+		already when the event wait ends */
+
+		os_thread_exit(NULL);
+	}
+	if ( len == 0 )
+		count++;
+	if ( count == 30 )
+		goto suspend;
+	goto flush;
 suspend:
 	mutex_enter(&kernel_mutex);
 
@@ -2358,6 +2390,7 @@ suspend:
 		os_thread_exit(NULL);
 	}
 
+	count = 0;
 	/* When there is user activity, InnoDB will set the event and the
 	main thread goes back to loop. */
 

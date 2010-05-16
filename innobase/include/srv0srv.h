@@ -463,6 +463,11 @@ srv_release_threads(
 	enum srv_thread_type	type,	/*!< in: thread type */
 	ulint			n);	/*!< in: number of threads to release */
 /*********************************************************************//**
+active sbp background thread */
+UNIV_INTERN
+void
+srv_active_wake_sbp_thread(void);
+/*********************************************************************//**
 The thread controlling secondary buffer pool.*/
 os_thread_ret_t
 srv_sbp_thread(
