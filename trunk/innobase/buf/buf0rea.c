@@ -154,20 +154,24 @@ buf_read_page_low(
 			if ( block ){
 				ut_ad(block->space == bpage->space && block->offset == bpage->offset );
 				buf_sec_pool->stat.n_page_reads++;
-//				mutex_enter(&block->mutex);
 				mutex_enter(buf_page_get_mutex(bpage));
-				os_file_read(buf_sec_pool->handle,((buf_block_t*)bpage)->frame,block->file_offset,block->file_offset_high,UNIV_PAGE_SIZE);
-				ut_ad(mach_read_from_4(((buf_block_t*)bpage)->frame + FIL_PAGE_OFFSET) == bpage->offset);
-				ut_ad(mach_read_from_4(((buf_block_t*)bpage)->frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) == bpage->space);
+				if ( block->frame){
+					/* if it is in the secondary buffer pool buffered writes */
+					ut_memcpy(((buf_block_t*)bpage)->frame,block->frame,UNIV_PAGE_SIZE);
+ 				}
+				else{
+					/* read from secondary buffer pool file */
+					os_file_read(buf_sec_pool->handle,((buf_block_t*)bpage)->frame,block->file_offset,block->file_offset_high,UNIV_PAGE_SIZE);
+				}
 				block->reads++;
 				block->access_time = ut_time_ms();
 				bpage->io_fix = BUF_IO_READ;
+				bpage->access_time = block->access_time;
 				/* add block to LRU FIRST */
 				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
 				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
 				buf_sec_pool->stat.n_page_made_young++;
 				mutex_exit(buf_page_get_mutex(bpage));
-//				mutex_exit(&block->mutex);
 				mutex_exit(&buf_sec_pool->mutex);
 				if ( !sync )
 					buf_page_io_complete(bpage);

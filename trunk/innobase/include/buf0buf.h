@@ -1063,11 +1063,11 @@ struct buf_sec_block_struct{
 								never access */
 	UT_LIST_NODE_T(buf_sec_block_t) LRU;	/*< LRU list */
 	UT_LIST_NODE_T(buf_sec_block_t) free;	/*< free list */
+	UT_LIST_NODE_T(buf_sec_block_t) flush_list; /*< flush_list */
 	buf_sec_block_t* hash;	/*!< hash chain */
 	unsigned file_offset:32; /*!< low offset */
 	unsigned file_offset_high:32; /*< high offset */
-	//mutex_t		mutex;		/*!< mutex protecting this block*/
-	byte*			frame;	/* not NULL, if it is in the flush list */
+	byte*	 frame;/* not NULL if it is in the buffered writes */
 };
 
 struct buf_sec_pool_stat_struct{
@@ -1102,12 +1102,15 @@ struct buf_sec_pool_struct{
 					/*!< pool size */
 	mutex_t			mutex;
 					/*!< mutex protecting free ,LRU, page_hash */
-	//void*			mem;
 	os_file_t		handle;
 	buf_sec_pool_stat_t stat;
 					/*!< current statistics */
 	buf_sec_pool_stat_t old_stat;
 					/*!< old statistics */
+	//mutex_t			latch[2];
+	uint			pos;
+	uint			len;
+	//unsigned		active;
 	byte*			frames;
 };
 

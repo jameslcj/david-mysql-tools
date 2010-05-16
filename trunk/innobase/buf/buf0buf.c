@@ -350,11 +350,10 @@ buf_sec_block_init(
 	buf_sec_block_t* block,	/*!< in: pointer to control block */ 
 	ulint offset)			/*!< in: offset in the secondary buffer pool file */
 {
-	UNIV_MEM_DESC(frame, UNIV_PAGE_SIZE, block);
-
 	block->file_offset = offset & 0xFFFFFFFFUL;
 	block->file_offset_high = (offset & 0x00000000UL)>>32;
 	block->access_time = 0;
+	block->frame = NULL;
 //	mutex_create(&block->mutex,SYNC_BUF_BLOCK);
 }
 
@@ -393,19 +392,12 @@ buf_sec_pool_init()
 
 	UT_LIST_INIT(buf_sec_pool->free);
 	UT_LIST_INIT(buf_sec_pool->LRU);
+	UT_LIST_INIT(buf_sec_pool->flush_list);
 	buf_sec_pool->size = srv_sec_buf_pool_size >> UNIV_PAGE_SIZE_SHIFT;
 	buf_sec_pool->page_hash = hash_create(2 * buf_sec_pool->size);
-
-
-	/*mem = ut_mmap_alloc_low(srv_sec_buf_pool_size,FALSE,TRUE,srv_sec_buf_pool_file);
-	ut_a(mem);
-	ut_ad(mem+srv_sec_buf_pool_size-1);
-	buf_sec_pool->mem = mem;
-	if ( mem == NULL){
-		srv_sec_buf_pool_size = 0;
-		ut_print_timestamp(stderr);
-		fprintf(stderr," InnoDB: Warning: secondary buffer pool is disable\n");
-	}*/
+	buf_sec_pool->len = 64;
+	buf_sec_pool->pos = 0;
+	buf_sec_pool->frames = ut_malloc(64*UNIV_PAGE_SIZE);
 
 #ifdef __WIN__
 	buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);

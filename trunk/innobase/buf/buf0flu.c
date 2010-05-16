@@ -87,6 +87,31 @@ buf_flush_validate_low(void);
 /*========================*/
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
+/* flush the block in secondary buffered writes */
+UNIV_INTERN
+uint
+buf_flush_sbp_buffered_writes(void){
+	buf_sec_block_t* block;
+	buf_sec_block_t* block2;
+	int		len;
+	ibool	ret;
+	mutex_enter(&buf_sec_pool->mutex);
+	len = UT_LIST_GET_LEN(buf_sec_pool->flush_list);
+	for(block=UT_LIST_GET_FIRST(buf_sec_pool->flush_list);block;block=UT_LIST_GET_NEXT(flush_list,block)){
+		ut_ad(block->frame);
+		ret = os_file_write(srv_sec_buf_pool_file,buf_sec_pool->handle,block->frame,block->file_offset,block->file_offset_high,UNIV_PAGE_SIZE);
+		ut_a(ret);
+		block->frame = NULL;
+		//if (UT_LIST_GET_PREV(flush_list,block))
+		//	UT_LIST_REMOVE(flush_list,buf_sec_pool->flush_list,UT_LIST_GET_PREV(flush_list,block));
+	}
+	for(block=UT_LIST_GET_FIRST(buf_sec_pool->flush_list);block;block=UT_LIST_GET_NEXT(flush_list,block)){
+		UT_LIST_REMOVE(flush_list,buf_sec_pool->flush_list,block);
+	}
+	buf_sec_pool->pos = 0;
+	mutex_exit(&buf_sec_pool->mutex);
+	return len;
+}
 /********************************************************************//**
 Inserts a modified block into the flush list. */
 UNIV_INTERN
@@ -552,10 +577,13 @@ flush:
 				block->page.space == b->space && block->page.offset == b->offset);
 			if ( b ){
 				/* find in hash table */
-//				mutex_enter(&b->mutex);
+				if ( b->frame ){
+					/* if in secondary buffer pool buffered writes */
+					UT_LIST_REMOVE(flush_list,buf_sec_pool->flush_list,b);
+				}
 				if ((block->page.newest_modification - block->page.oldest_modification) <  0 ){
+					/* currently it won't happen */
 					buf_sec_pool->stat.n_page_sync++;
-//					ut_memcpy(b->frame,block->frame,UNIV_PAGE_SIZE);
 					b->writes++;
 				}
 				else{
@@ -564,7 +592,6 @@ flush:
 					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,b);
 					UT_LIST_ADD_FIRST(free,buf_sec_pool->free,b);
 				}
-//				mutex_exit(&b->mutex);
 			}
 			mutex_exit(&buf_sec_pool->mutex);
 		}

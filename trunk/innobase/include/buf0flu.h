@@ -32,6 +32,10 @@ Created 11/5/1995 Heikki Tuuri
 #include "mtr0types.h"
 #include "buf0types.h"
 
+/* flush the block in secondary buffered writes */
+UNIV_INTERN
+uint
+buf_flush_sbp_buffered_writes(void);
 /********************************************************************//**
 Remove a block from the flush list of modified blocks. */
 UNIV_INTERN
