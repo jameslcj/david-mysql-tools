@@ -68,10 +68,12 @@ Created 10/10/1995 Heikki Tuuri
 
 extern const char* srv_sec_buf_pool_file;
 extern const char* srv_sec_buf_pool_preload_table;
-extern ulint	srv_sec_buf_pool_size;
-
+extern ulint srv_sec_buf_pool_size;
+extern ulint srv_sec_buf_pool_buffered_writes;
+extern my_bool srv_sec_buf_pool_direct_io;
+extern my_bool srv_sec_buf_pool_enable_lru;
 extern const char*	srv_main_thread_op_info;
-
+extern const char*	srv_sbp_thread_op_info;
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
 extern const char	srv_mysql50_table_name_prefix[9];
 

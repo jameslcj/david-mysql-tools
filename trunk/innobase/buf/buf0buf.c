@@ -299,10 +299,13 @@ buf_sec_print_io(
 	fprintf(file,
 		"Secondary buffer pool size	%lu\n"
 		"Free pages	%lu\n"
-		"LRU pages	%lu\n",
+		"LRU pages	%lu\n"
+		"Flush list len %lu State: %s\n",
 		(ulong) buf_sec_pool->size,
 		UT_LIST_GET_LEN(buf_sec_pool->free),
-		UT_LIST_GET_LEN(buf_sec_pool->LRU)
+		UT_LIST_GET_LEN(buf_sec_pool->LRU),
+		UT_LIST_GET_LEN(buf_sec_pool->flush_list),
+		srv_sbp_thread_op_info
 		);
 
 	fprintf(file,
@@ -395,9 +398,9 @@ buf_sec_pool_init()
 	UT_LIST_INIT(buf_sec_pool->flush_list);
 	buf_sec_pool->size = srv_sec_buf_pool_size >> UNIV_PAGE_SIZE_SHIFT;
 	buf_sec_pool->page_hash = hash_create(2 * buf_sec_pool->size);
-	buf_sec_pool->len = 64;
+	buf_sec_pool->len = srv_sec_buf_pool_buffered_writes;
 	buf_sec_pool->pos = 0;
-	buf_sec_pool->frames = ut_malloc(64*UNIV_PAGE_SIZE);
+	buf_sec_pool->frames = ut_malloc(srv_sec_buf_pool_buffered_writes*UNIV_PAGE_SIZE);
 
 #ifdef __WIN__
 	buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);
