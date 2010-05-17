@@ -405,7 +405,10 @@ buf_sec_pool_init()
 #ifdef __WIN__
 	buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);
 #else
-	buf_sec_pool->handle = os_file_create(srv_sec_buf_pool_file,OS_FILE_OPEN,OS_FILE_AIO,OS_DATA_FILE,&ret);
+	if ( srv_sec_buf_pool_direct_io )
+		buf_sec_pool->handle = os_file_create(srv_sec_buf_pool_file,OS_FILE_OPEN,OS_FILE_AIO,OS_DATA_FILE,&ret);
+	else
+		buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);
 #endif
 	ut_a(ret);
 	
