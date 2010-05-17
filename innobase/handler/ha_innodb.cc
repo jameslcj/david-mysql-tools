@@ -155,6 +155,7 @@ static ulong innobase_write_io_threads;
 static long long innobase_buffer_pool_size, innobase_log_file_size;
 
 static long long innobase_secondary_buffer_pool_size;
+static my_bool	innobase_secondary_buffer_pool_direct_io = TRUE;
 static char*	innobase_secondary_buffer_pool_file	= NULL;
 static char*	innobase_secondary_buffer_pool_preload_table = NULL;
 /** Percentage of the buffer pool to reserve for 'old' blocks.
@@ -10215,6 +10216,21 @@ static MYSQL_SYSVAR_LONGLONG(secondary_buffer_pool_size, innobase_secondary_buff
   "The size of the secondary memory buffer InnoDB uses to cache data and indexes of its tables.",
   NULL, NULL, 0L, 0L, LONGLONG_MAX, 1024*1024L);
 
+static MYSQL_SYSVAR_ULONG(secondary_buffer_pool_bufferd_writes, srv_sec_buf_pool_buffered_writes,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "The write buffer queue in secondary buffer pool.",
+  NULL, NULL, 64, 64, 256, 0);
+
+static MYSQL_SYSVAR_BOOL(secondary_buffer_pool_direct_io, srv_sec_buf_pool_direct_io,
+  PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+  "Use direct IO with secondary buffer pool file",
+  NULL, NULL, TRUE);
+
+static MYSQL_SYSVAR_BOOL(secondary_buffer_pool_enable_lru, srv_sec_buf_pool_enable_lru,
+  PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+  "Use LRU in secondary buffer pool file",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_STR(secondary_buffer_pool_file, innobase_secondary_buffer_pool_file,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Path to InnoDB secondary buffer pool files.", NULL, NULL, "ib_sbpfile");
@@ -10224,6 +10240,9 @@ static MYSQL_SYSVAR_STR(secondary_buffer_pool_preload_table, innobase_secondary_
   "Preload table to InnoDB secondary buffer pool", NULL, NULL, "");
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(secondary_buffer_pool_bufferd_writes),
+  MYSQL_SYSVAR(secondary_buffer_pool_enable_lru),
+  MYSQL_SYSVAR(secondary_buffer_pool_direct_io),
   MYSQL_SYSVAR(secondary_buffer_pool_preload_table),
   MYSQL_SYSVAR(secondary_buffer_pool_size),
   MYSQL_SYSVAR(secondary_buffer_pool_file),

@@ -167,10 +167,12 @@ buf_read_page_low(
 				block->access_time = ut_time_ms();
 				bpage->io_fix = BUF_IO_READ;
 				bpage->access_time = block->access_time;
-				/* add block to LRU FIRST */
-				UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
-				UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
-				buf_sec_pool->stat.n_page_made_young++;
+				if ( srv_sec_buf_pool_enable_lru ){
+					/* add block to LRU FIRST */
+					UT_LIST_REMOVE(LRU,buf_sec_pool->LRU,block);
+					UT_LIST_ADD_FIRST(LRU,buf_sec_pool->LRU,block);
+					buf_sec_pool->stat.n_page_made_young++;
+				}
 				mutex_exit(buf_page_get_mutex(bpage));
 				mutex_exit(&buf_sec_pool->mutex);
 				if ( !sync )

@@ -109,6 +109,9 @@ UNIV_INTERN ulint	srv_sec_buf_pool_size	= ULINT_MAX;
 /* secondary buffer pool file name */
 UNIV_INTERN const char*	srv_sec_buf_pool_file;
 UNIV_INTERN const char* srv_sec_buf_pool_preload_table;
+UNIV_INTERN my_bool		srv_sec_buf_pool_direct_io;
+UNIV_INTERN my_bool		srv_sec_buf_pool_enable_lru;
+UNIV_INTERN	ulint		srv_sec_buf_pool_buffered_writes = 64;
 /* This is set to TRUE if the MySQL user has set it in MySQL; currently
 affects only FOREIGN KEY definition parsing */
 UNIV_INTERN ibool	srv_lower_case_table_names	= FALSE;
@@ -128,6 +131,7 @@ UNIV_INTERN ibool	srv_lock_timeout_and_monitor_active = FALSE;
 UNIV_INTERN ibool	srv_error_monitor_active = FALSE;
 
 UNIV_INTERN const char*	srv_main_thread_op_info = "";
+UNIV_INTERN const char*	srv_sbp_thread_op_info = "";
 
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
 UNIV_INTERN const char	srv_mysql50_table_name_prefix[9] = "#mysql50#";
@@ -1890,8 +1894,6 @@ srv_export_innodb_status(void)
 			= buf_sec_pool->stat.n_page_skip_unuseful;
 		export_vars.innodb_secondary_buffer_pool_pages_skip_write_overloaded
 			= buf_sec_pool->stat.n_page_skip_write_overloaded;
-
-
 	}
 	export_vars.innodb_data_pending_reads
 		= os_n_pending_reads;
@@ -2347,6 +2349,7 @@ void*	arg __attribute__((unused)))
 	ibool		skip_sleep = FALSE;
 	uint		len;
 	uint		count = 0;
+	uint		i;
 	//srv_main_thread_process_no = os_proc_get_number();
 	//srv_main_thread_id = os_thread_pf(os_thread_get_curr_id());
 
@@ -2358,21 +2361,29 @@ void*	arg __attribute__((unused)))
 
 	mutex_exit(&kernel_mutex);
 flush:
-	len = buf_flush_sbp_buffered_writes();
-	skip_sleep = len > 32 ? TRUE : FALSE;
-	if ( !skip_sleep ){
-		os_thread_sleep(1000000);
-	}
-	if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
-		/* This is only extra safety, the thread should exit
-		already when the event wait ends */
+	for(i = 0; i < 10; i++ ){
+		srv_sbp_thread_op_info = "background flushing buffered writes";
+		len = buf_flush_sbp_buffered_writes();
+		skip_sleep = len > srv_sec_buf_pool_buffered_writes / 2 ? TRUE : FALSE;
+		if ( !skip_sleep ){
+			srv_sbp_thread_op_info = "sleeping";
+			os_thread_sleep(1000000);
+		}
+		if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+			/* This is only extra safety, the thread should exit
+			already when the event wait ends */
 
-		os_thread_exit(NULL);
+			os_thread_exit(NULL);
+		}
+		if ( len == 0 )
+			count++;
+		if ( count == 30 )
+			goto suspend;
 	}
-	if ( len == 0 )
-		count++;
-	if ( count == 30 )
-		goto suspend;
+	if ( !srv_sec_buf_pool_direct_io ){
+		srv_sbp_thread_op_info = "flushing to disk";
+		os_file_flush(buf_sec_pool->handle);
+	}
 	goto flush;
 suspend:
 	mutex_enter(&kernel_mutex);
@@ -2380,6 +2391,8 @@ suspend:
 	event = srv_suspend_thread();
 
 	mutex_exit(&kernel_mutex);
+
+	srv_sbp_thread_op_info = "suspending";
 
 	os_event_wait(event);
 
