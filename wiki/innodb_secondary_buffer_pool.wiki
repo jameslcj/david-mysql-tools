@@ -4,11 +4,7 @@
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
 This feature is much like flash cache in Oracle's Exadata
 
-After enable this feature, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool first. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance.
-
-For using innodb secondary buffer pool, it is highly recommand you using 64 bit os system.
-
-Currently, flash cache do not cache the data in share tablespace (ibdata1). Hence, you must use --innodb_file_per_table parameter to enable flash cache.
+After enable this feature, innodb will add a new backgound thread, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage if the thread is availible. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool first. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance.
 
 = TPC-C benchmark =
 
