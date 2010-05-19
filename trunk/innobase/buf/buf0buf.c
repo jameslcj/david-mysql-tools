@@ -400,10 +400,10 @@ buf_sec_pool_init()
 	buf_sec_pool->page_hash = hash_create(2 * buf_sec_pool->size);
 	buf_sec_pool->len = srv_sec_buf_pool_buffered_writes;
 	buf_sec_pool->pos = 0;
-	buf_sec_pool->frames = ut_malloc(srv_sec_buf_pool_buffered_writes*UNIV_PAGE_SIZE);
+	buf_sec_pool->frames = ut_align(ut_malloc((srv_sec_buf_pool_buffered_writes+1)*UNIV_PAGE_SIZE),UNIV_PAGE_SIZE);
 
 #ifdef __WIN__
-	buf_sec_pool->handle = os_file_create_simple_no_error_handling(srv_sec_buf_pool_file,OS_FILE_OPEN, OS_FILE_READ_WRITE,&ret);
+	buf_sec_pool->handle =  os_file_create(srv_sec_buf_pool_file,OS_FILE_OPEN,OS_FILE_AIO,OS_DATA_FILE,&ret);
 #else
 	if ( srv_sec_buf_pool_direct_io )
 		buf_sec_pool->handle = os_file_create(srv_sec_buf_pool_file,OS_FILE_OPEN,OS_FILE_AIO,OS_DATA_FILE,&ret);

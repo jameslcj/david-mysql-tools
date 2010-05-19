@@ -10224,7 +10224,7 @@ static MYSQL_SYSVAR_ULONG(secondary_buffer_pool_bufferd_writes, srv_sec_buf_pool
 static MYSQL_SYSVAR_BOOL(secondary_buffer_pool_direct_io, srv_sec_buf_pool_direct_io,
   PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
   "Use direct IO with secondary buffer pool file",
-  NULL, NULL, TRUE);
+  NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_BOOL(secondary_buffer_pool_enable_lru, srv_sec_buf_pool_enable_lru,
   PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
