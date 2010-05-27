@@ -3119,7 +3119,7 @@ fil_pre_load_to_secondary_buffer_pool(
 				fprintf(stderr,"  InnoDB: preloading table %s.%s to secondary buffer pool.(%.2f%%)\n",dbname,tablename,
 					(100.0*UT_LIST_GET_LEN(buf_sec_pool->LRU)/((UT_LIST_GET_LEN(buf_sec_pool->free)+(UT_LIST_GET_LEN(buf_sec_pool->LRU)))))); 
 			}
-			for ( i = 0; i < (size / UNIV_PAGE_SIZE) ; i++ ){
+			for ( i = 0; i < ( (size_high<<32 + size) / UNIV_PAGE_SIZE) ; i++ ){
 				/* Read the first page of the tablespace if the size big enough */
 				buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
 				/* Align the memory for file i/o if we might have O_DIRECT set */
