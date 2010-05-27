@@ -3124,8 +3124,8 @@ fil_pre_load_to_secondary_buffer_pool(
 				buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
 				/* Align the memory for file i/o if we might have O_DIRECT set */
 				page = ut_align(buf2, UNIV_PAGE_SIZE);
-				foffset = i*UNIV_PAGE_SIZE & 0xFFFFFFFF;
-				foffset_high = ((i*UNIV_PAGE_SIZE) & 0x00000000) >> 32;
+				foffset = i*UNIV_PAGE_SIZE & 0xFFFFFFFFUL;
+				foffset_high = ((i*UNIV_PAGE_SIZE) & 0x00000000UL) >> 32;
 				success = os_file_read(file, page, foffset, foffset_high, UNIV_PAGE_SIZE);
 				if ( success == TRUE ){
 					if ( mach_read_from_2(page+FIL_PAGE_TYPE) == FIL_PAGE_INDEX ){
@@ -3170,6 +3170,8 @@ fil_pre_load_to_secondary_buffer_pool(
 				else{
 					if ( buf2 )
 						ut_free(buf2);
+					fprintf(stderr," InnoDB: [Error] foffset: %lu, foffset_high %lu, offset %lu",foffset,foffset_high,i);
+					ut_error;
 					return;
 				}
 			}
