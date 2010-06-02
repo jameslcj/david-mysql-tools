@@ -6,6 +6,15 @@ This feature is much like flash cache in Oracle's Exadata
 
 After enable this feature, innodb will add a new backgound thread, when the page was removed from the innodb buffer pool, InnoDB will move it to the flash memory or ssd storage if the thread is availible. When InnoDB read a new page which is not in the buffer pool, it will read the secondary buffer pool first. If the page is cached in secondary buffer pool, it will not read the disk. Because the high random read performance of flash memory or ssd, this will boost the database performance.
 
+= Sysbench OLTP benchmark =
+Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
+Database: ~19G ( created by sysbench, row: 80000000 )<br>
+disk: 4 disk RAID 10
+flash storage: Intel X25-M 80G SSD<br>
+|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result(tps)* ||
+|| 8G|| 0|| 81.29 || 
+|| 8G|| 40G|| 171.3 || 
+
 = TPC-C benchmark =
 
 Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
