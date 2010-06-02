@@ -11,6 +11,9 @@ Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
 Database: ~19G ( created by sysbench, row: 80000000 )<br>
 disk: 4 disk RAID 10
 flash storage: Intel X25-M 80G SSD<br>
+test command:<br>
+sysbench --test=oltp --oltp-table-size=80000000 --oltp-read-only=off --init-rng=on --num-threads=16 --max-requests=0 --oltp-dist-type=uniform --max-time=180  --mysql-user=root   --mysql-socket=/tmp/mysql.sock --db-driver=mysql   run<br>
+
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result(tps)* ||
 || 8G|| 0|| 81.29 || 
 || 8G|| 40G|| 171.3 || 
