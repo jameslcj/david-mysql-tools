@@ -14,10 +14,12 @@ flash storage: Intel X25-M 80G SSD<br>
 test command:<br>
 sysbench --test=oltp --oltp-table-size=80000000 --oltp-read-only=off --init-rng=on --num-threads=16 --max-requests=0 --oltp-dist-type=uniform --max-time=180  --mysql-user=root   --mysql-socket=/tmp/mysql.sock --db-driver=mysql   run<br>
 
-|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result(tps)* ||
-|| 8G|| 0|| 81.29 || 
-|| 8G|| 40G|| 171.3 || 
-
+|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *read-only(tps)* || *read-write(tps)* ||
+|| 8G|| 0G|| 117.06|| 83.13||
+||8G(sbtest on ssd)||0G||315.62||210.37||
+||8G|| 4G||  178.40|| 104.88||
+||8G|| 10G|| 267.4|| 256.75||
+||8G|| 30G|| 244.91|| 174.06||
 = TPC-C benchmark =
 
 Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
