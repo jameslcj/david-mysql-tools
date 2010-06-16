@@ -26,12 +26,9 @@ sysbench --test=oltp --oltp-table-size=80000000 --oltp-read-only=off --init-rng=
 = TPC-C benchmark =
 
 Server: Intel(R) Xeon Quad-Core E5405 2.00GHz X 2<br>
-
-Database: ~1.2G ( created by tpcc_load, 10 warehouse )<br>
-
+Database: 9G ( created by tpcc_load, 100 warehouse )<br>
 disk: 4 disk RAID 10
-
-flash storage: 1G normal flash memory (995M after format)<br>
+flash storage: Intel X25-M 80G SSD<br>
 
 MySQL configuration:
 {{{
@@ -39,15 +36,11 @@ MySQL configuration:
 | innodb_flush_method               | O_DIRECT |
 }}}
 
-tpcc-mysql: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 600 1200<br>
+tpcc-mysql: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 1 7200<br>
 
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result(tpmC)* ||
-|| 128M || 0|| 1336.65 || 
-|| 128M || 512M || 3771.2 ||
-|| 128M || 920M || 4481.4 ||
-|| 384M || 0 || 5421.1 ||
-|| 384M || 512M || 7036.00 ||
-|| 384M || 920M || 7905.6 || 
+|| 4G || 30G|| 9408 || 
+|| 4G(tpcc on SSD)|| 0 || 10771.2 ||
 
 = Configuration =
 
