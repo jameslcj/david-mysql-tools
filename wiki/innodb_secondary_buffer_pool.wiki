@@ -39,7 +39,7 @@ MySQL configuration:
 tpcc-mysql: tpcc_start 127.0.0.1 tpcc root '123456' 10 16 1 7200<br>
 
 || *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *result(tpmC)* ||
-|| 4G || 30G|| 9408 || 
+|| 4G || 30G|| 8643.892|| 
 || 4G(tpcc on SSD)|| 0 || 10771.2 ||
 
 = Configuration =
