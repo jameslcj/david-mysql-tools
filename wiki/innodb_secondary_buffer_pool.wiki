@@ -1,4 +1,9 @@
 #labels InnoDB,SSD,Flash,Cache,MySQL
+Contact me if you wanna know more about this project or my support in using secondary buffer pool:
+Mail: jiangchengyao@gmail.com
+MSN: jiangchengyao@gmail.com
+QQ: 82946772
+
 = Introduction =
 
 Enable using flash memory or solid state drive(SSD) as innodb's secondary buffer pool.<br>
