@@ -1,8 +1,8 @@
 #labels InnoDB,SSD,Flash,Cache,MySQL
-Contact me if you wanna know more about this project or my support in using secondary buffer pool:
-Mail: jiangchengyao@gmail.com
-MSN: jiangchengyao@gmail.com
-QQ: 82946772
+Contact me if you wanna know more about this project or my support in using secondary buffer pool:<br>
+Mail: jiangchengyao@gmail.com<br>
+MSN: jiangchengyao@gmail.com<br>
+QQ: 82946772<br>
 
 = Introduction =
 
