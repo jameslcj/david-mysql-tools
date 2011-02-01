@@ -16,15 +16,13 @@ Database: ~19G ( created by sysbench, row: 80000000 )<br>
 disk: 4 disk RAID 10
 flash storage: Intel X25-M 80G SSD<br>
 test command:<br>
-sysbench --test=oltp --oltp-table-size=80000000 --oltp-read-only=off --init-rng=on --num-threads=16 --max-requests=0 --oltp-dist-type=uniform --max-time=180  --mysql-user=root   --mysql-socket=/tmp/mysql.sock --db-driver=mysql   run<br>
+sysbench --test=oltp --oltp-table-size=80000000 --oltp-read-only=off --init-rng=on --num-threads=16 --max-requests=0 --oltp-dist-type=uniform --max-time=7200  --mysql-user=root   --mysql-socket=/tmp/mysql.sock --db-driver=mysql   run<br>
 
-|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* || *read-only(tps)* || *read-write(tps)* ||
-|| 8G|| 0G|| 117.06|| 83.13||
-||8G(sbtest on ssd)||0G||315.62||210.37||
-||8G|| 4G||  178.40|| 104.88||
-||8G|| 10G|| 267.4|| 159.02||
-||8G|| 10G(direct io)|| 267.65|| 163.33||
-||8G|| 30G|| 244.91|| 174.06||
+|| *innodb_buffer_pool* || *innodb_secondary_buffer_pool* ||  *read-write(tps)* ||
+|| 8G|| 0G|| 55.03||
+|| 8G(sbtest on SSD) || 0G || 60.8 ||
+|| 8G|| 30G|| 86.23 ||
+
 
 
 = TPC-C benchmark =
