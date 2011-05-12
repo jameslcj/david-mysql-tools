@@ -1,0 +1,45 @@
+stop slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+reset master;
+reset slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+start slave;
+call mtr.add_suppression("Deadlock found");
+**** On Master ****
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES (1,1), (2,2), (3,3), (4,4);
+**** On Slave ****
+SHOW STATUS LIKE 'Slave_retried_transactions';
+Variable_name	Value
+Slave_retried_transactions	0
+set @@global.slave_exec_mode= 'IDEMPOTENT';
+UPDATE t1 SET a = 5, b = 47 WHERE a = 1;
+SELECT * FROM t1;
+a	b
+5	47
+2	2
+3	3
+4	4
+**** On Master ****
+UPDATE t1 SET a = 5, b = 5 WHERE a = 1;
+SELECT * FROM t1;
+a	b
+5	5
+2	2
+3	3
+4	4
+**** On Slave ****
+set @@global.slave_exec_mode= default;
+SHOW STATUS LIKE 'Slave_retried_transactions';
+Variable_name	Value
+Slave_retried_transactions	0
+SELECT * FROM t1;
+a	b
+5	47
+2	2
+3	3
+4	4
+Checking that both slave threads are running.
+DROP TABLE t1;
+**** On Master ****
+DROP TABLE t1;

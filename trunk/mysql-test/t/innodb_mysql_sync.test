@@ -1,0 +1,111 @@
+#
+# Test file for InnoDB tests that require the debug sync facility
+#
+--source include/have_innodb.inc
+--source include/have_debug_sync.inc
+# Save the initial number of concurrent sessions.
+--source include/count_sessions.inc
+
+
+--echo #
+--echo # Bug 42074 concurrent optimize table and 
+--echo # alter table = Assertion failed: thd->is_error()
+--echo #
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Create InnoDB table
+CREATE TABLE t1 (id INT) engine=innodb;
+connect (con2, localhost, root);
+
+--echo # Connection 1
+--echo # Start optimizing table
+connection default;
+SET DEBUG_SYNC='ha_admin_try_alter SIGNAL optimize_started WAIT_FOR table_altered';
+--send OPTIMIZE TABLE t1
+
+--echo # Connection 2
+--echo # Change table to engine=memory
+connection con2;
+SET DEBUG_SYNC='now WAIT_FOR optimize_started';
+ALTER TABLE t1 engine=memory;
+SET DEBUG_SYNC='now SIGNAL table_altered';
+
+--echo # Connection 1
+--echo # Complete optimization
+connection default;
+--reap
+
+disconnect con2;
+DROP TABLE t1;
+SET DEBUG_SYNC='RESET';
+
+
+--echo #
+--echo # Bug#47459 Assertion in Diagnostics_area::set_eof_status on
+--echo #           OPTIMIZE TABLE
+--echo #
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+connect (con1, localhost, root);
+connection default;
+
+CREATE TABLE t1(a INT) ENGINE= InnoDB;
+
+--echo # Connection con1
+connection con1;
+SET DEBUG_SYNC= "ha_admin_open_ltable SIGNAL opening WAIT_FOR dropped";
+--echo # Sending:
+--send OPTIMIZE TABLE t1
+
+--echo # Connection default
+connection default;
+SET DEBUG_SYNC= "now WAIT_FOR opening";
+DROP TABLE t1;
+SET DEBUG_SYNC= "now SIGNAL dropped";
+
+--echo # Connection con1
+connection con1;
+--echo # Reaping: OPTIMIZE TABLE t1
+--reap
+
+--echo # Connection default
+connection default;
+disconnect con1;
+SET DEBUG_SYNC= "RESET";
+
+
+--echo #
+--echo # Bug#53757 assert in mysql_truncate_by_delete
+--echo #
+
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--enable_warnings
+
+CREATE TABLE t1(a INT) Engine=InnoDB;
+CREATE TABLE t2(id INT);
+INSERT INTO t1 VALUES (1), (2);
+
+connect (con1, localhost, root);
+INSERT INTO t2 VALUES(connection_id());
+SET DEBUG_SYNC= "open_and_process_table SIGNAL opening WAIT_FOR killed";
+--echo # Sending: (not reaped since connection is killed later)
+--send TRUNCATE t1
+
+connection default;
+SET DEBUG_SYNC= "now WAIT_FOR opening";
+SELECT ((@id := id) - id) FROM t2; 
+KILL @id;
+SET DEBUG_SYNC= "now SIGNAL killed";
+DROP TABLE t1, t2;
+
+
+# Check that all connections opened by test cases in this file are really
+# gone so execution of other tests won't be affected by their presence.
+--source include/wait_until_count_sessions.inc
