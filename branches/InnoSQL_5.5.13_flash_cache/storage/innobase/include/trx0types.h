@@ -35,6 +35,7 @@ Created 3/26/1996 Heikki Tuuri
 the terminating NUL character. */
 #define TRX_ID_MAX_LEN		17
 
+typedef struct trx_flashcache_block_struct	trx_flashcache_block_t;
 /** Memory objects */
 /* @{ */
 /** Transaction */

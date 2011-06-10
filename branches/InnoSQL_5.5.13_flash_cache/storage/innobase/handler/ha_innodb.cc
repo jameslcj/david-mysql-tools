@@ -11307,7 +11307,20 @@ static MYSQL_SYSVAR_ULONG(read_ahead_threshold, srv_read_ahead_threshold,
   "trigger a readahead.",
   NULL, NULL, 56, 0, 64, 0);
 
+static MYSQL_SYSVAR_STR(flash_cache_file, srv_flash_cache_file,
+  PLUGIN_VAR_READONLY,
+  "Flash cache file location.",
+  NULL, NULL, NULL);
+
+static MYSQL_SYSVAR_ULONG(flash_cache_size, srv_flash_cache_size,
+  PLUGIN_VAR_READONLY,
+  "Flash cache file size",
+  NULL, NULL, 0, 0, ULONG_MAX, 0);
+
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(flash_cache_file),
+  MYSQL_SYSVAR(flash_cache_size),
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(autoextend_increment),
   MYSQL_SYSVAR(buffer_pool_size),

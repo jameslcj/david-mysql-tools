@@ -171,6 +171,39 @@ trx_doublewrite_page_inside(
 }
 
 /****************************************************************//**
+Initialializes the flash cahce at database startup. */
+static
+void
+trx_flash_cache_init(
+/*=================*/
+){
+	int i ;
+
+	trx_doublewrite->cur_off = 0;
+	trx_doublewrite->flush_off = -1;
+	trx_doublewrite->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; /* first page using as flash cache header */
+	trx_doublewrite->fc_hash = hash_create(2 * trx_doublewrite->fc_size);
+	trx_doublewrite->cur_round = 0;
+	trx_doublewrite->flush_round = 0;
+	trx_doublewrite->fc_hash_partition = 2;
+	trx_doublewrite->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc_size);
+	trx_doublewrite->read_buf = ut_align(ut_malloc(srv_io_capacity+1),UNIV_PAGE_SIZE);
+
+	mutex_create(PFS_NOT_INSTRUMENTED,
+		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
+	fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
+	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+
+	for(i=0;i<trx_doublewrite->fc_size;i++){
+		trx_doublewrite->block[i].fil_offset = i*UNIV_PAGE_SIZE;
+		trx_doublewrite->block[i].space = 0;
+		trx_doublewrite->block[i].offset = 0;
+		trx_doublewrite->block[i].used = 0;
+
+	}
+}
+
+/****************************************************************//**
 Creates or initialializes the doublewrite buffer at a database start. */
 static
 void
@@ -203,6 +236,11 @@ trx_doublewrite_init(
 		trx_doublewrite->write_buf_unaligned, UNIV_PAGE_SIZE);
 	trx_doublewrite->buf_block_arr = mem_alloc(
 		2 * TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * sizeof(void*));
+
+	if ( srv_flash_cache_size > 0 ){
+		trx_flash_cache_init();
+	}
+
 }
 
 /****************************************************************//**
