@@ -1,4 +1,4 @@
-/*****************************************************************************
+ /*****************************************************************************
 
 Copyright (c) 1995, 2010, Innobase Oy. All Rights Reserved.
 
@@ -703,6 +703,7 @@ buf_flush_buffered_writes(void)
 	ulint		len;
 	ulint		len2;
 	ulint		i;
+	ulint		start_off;
 
 	if (!srv_use_doublewrite_buf || trx_doublewrite == NULL) {
 		/* Sync the writes to the disk. */
@@ -721,6 +722,10 @@ buf_flush_buffered_writes(void)
 		mutex_exit(&(trx_doublewrite->mutex));
 
 		return;
+	}
+
+	if ( srv_flash_cache_size > 0 ){
+		goto flush;
 	}
 
 	for (i = 0; i < trx_doublewrite->first_free; i++) {
@@ -853,16 +858,77 @@ corrupted_page:
 	}
 
 flush:
-	/* Now flush the doublewrite buffer data to disk */
 
-	fil_flush(TRX_SYS_SPACE);
+	if ( srv_flash_cache_size > 0 ){
+		
+		start_off = trx_doublewrite->cur_off;
+
+		if ( trx_doublewrite->cur_round == trx_doublewrite->flush_round ){
+			/* in the same round */
+			if ( trx_doublewrite->cur_off + trx_doublewrite->first_free < trx_doublewrite->fc_size ){
+				/* we have space to cache the page write */
+				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
+					trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
+					   (void*) trx_doublewrite->write_buf, NULL);
+				trx_doublewrite->cur_off = trx_doublewrite->cur_off +  trx_doublewrite->first_free;
+				if ( trx_doublewrite->cur_off == trx_doublewrite->fc_size ){
+					trx_doublewrite->cur_off = 0;
+					trx_doublewrite->cur_round = trx_doublewrite->cur_round + 1;
+				}
+			}
+			else {
+				ulint len1;
+				ulint len2;
+
+				len1 = trx_doublewrite->fc_size - trx_doublewrite->cur_off;
+				len2 = trx_doublewrite->first_free - len1;
+
+				if ( len2 > trx_doublewrite->flush_off ){
+					fprintf(stderr,
+					"  InnoDB: WARNING: No space for write cache, waiting.\n");
+					goto flush;
+				}
+				/* write first buf */
+				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
+					trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, len1*UNIV_PAGE_SIZE,
+					   (void*) trx_doublewrite->write_buf, NULL);
+				/* write second buf, start from 0 offset */
+				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
+					0, 0, len2*UNIV_PAGE_SIZE,
+					   (void*) trx_doublewrite->write_buf[len1*UNIV_PAGE_SIZE], NULL);
+				trx_doublewrite->cur_off = len2;
+				trx_doublewrite->cur_round = trx_doublewrite->cur_round + 1;
+			}
+		}
+		else{
+			
+			ut_ad(trx_doublewrite->flush_round + 1 == trx_doublewrite->cur_round);
+			ut_ad(trx_doublewrite->flush_off > trx_doublewrite->cur_off );
+
+			if ( trx_doublewrite->cur_off + trx_doublewrite->first_free >= trx_doublewrite->flush_off ){
+				fprintf(stderr,
+					"  InnoDB: WARNING: No space for write cache, waiting.\n");
+					goto flush;
+			}
+			/* write second buf, start from 0 offset */
+			fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
+				trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
+					(void*) trx_doublewrite->write_buf, NULL);
+			trx_doublewrite->cur_off = trx_doublewrite->cur_off + trx_doublewrite->first_free;
+
+		}
+	}
+	else{
+		/* Now flush the doublewrite buffer data to disk */
+		fil_flush(TRX_SYS_SPACE);
+	}
 
 	/* We know that the writes have been flushed to disk now
 	and in recovery we will find them in the doublewrite buffer
 	blocks. Next do the writes to the intended positions. */
 
 	for (i = 0; i < trx_doublewrite->first_free; i++) {
-		const buf_block_t* block = (buf_block_t*)
+		buf_block_t* block = (buf_block_t*)
 			trx_doublewrite->buf_block_arr[i];
 
 		ut_a(buf_page_in_file(&block->page));
@@ -904,18 +970,73 @@ flush:
 				(ulong)buf_block_get_state(block));
 		}
 
-		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,
-		       FALSE, buf_block_get_space(block), 0,
-		       buf_block_get_page_no(block), 0, UNIV_PAGE_SIZE,
-		       (void*)block->frame, (void*)block);
+		if ( srv_flash_cache_size > 0 ){
+			ulint fold;
+			ulint index;
+			ulint off;
+			trx_flashcache_block_t* b;
+			trx_flashcache_block_t* b2;
 
+			fold = buf_page_address_fold(block->page.space, block->page.offset >> 6);
+			index = fold % trx_doublewrite->fc_hash_partition;
+
+			off = (start_off + i) % trx_doublewrite->fc_size;
+			
+			mutex_enter(&trx_doublewrite->mutex);
+			b = &trx_doublewrite->block[off];
+
+			if ( b->used ){
+				/* alread used, remove it from the hash table */
+				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+					buf_page_address_fold(b->space, b->offset),
+					b);
+			}
+			else{
+				/* set it to used */
+				b->used = 1;
+			}
+			b->space = block->page.space;
+			b->offset = block->page.offset;
+			
+			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(block->page.space,block->page.offset),
+				trx_flashcache_block_t*,b2,
+				ut_ad(1),
+				block->page.space == b2->space && block->page.offset == b2->offset);
+
+			if ( b2 ){
+				b2->used = 0;
+				/* alread used, remove it from the hash table */
+				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+					buf_page_address_fold(b2->space, b2->offset),
+					b2);
+			}
+
+			/* insert to hash table */
+			HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(b->space, b->offset),
+				b);
+
+		
+			mutex_exit(&trx_doublewrite->mutex);
+			
+			buf_page_io_complete(&block->page);
+		}
+		else{
+			fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,
+				   FALSE, buf_block_get_space(block), 0,
+				   buf_block_get_page_no(block), 0, UNIV_PAGE_SIZE,
+				   (void*)block->frame, (void*)block);
+		}
 		/* Increment the counter of I/O operations used
 		for selecting LRU policy. */
 		buf_LRU_stat_inc_io();
 	}
 
-	/* Sync the writes to the disk. */
-	buf_flush_sync_datafiles();
+	if ( srv_flash_cache_size == 0 ){
+		/* Sync the writes to the disk. */
+		buf_flush_sync_datafiles();
+	}
 
 	/* We can now reuse the doublewrite memory buffer: */
 	trx_doublewrite->first_free = 0;
@@ -2185,6 +2306,93 @@ buf_flush_get_desired_flush_rate(void)
 	LRU list */
 	rate = n_flush_req - lru_flush_avg;
 	return(rate > 0 ? (ulint) rate : 0);
+}
+
+/******************************************************************//**
+Flush pages from flash cache.
+@return	number of pages to be flush to tablespace */
+UNIV_INTERN
+ulint
+buf_flush_flash_cache_page(
+/*===================*/
+){
+	ulint n_flush;
+	ulint ret;
+	ulint i;
+	byte* page;
+	ulint space;
+	ulint offset;
+#ifdef UNIV_DEBUG
+	ulint lsn;
+	ulint lsn2;
+	byte page2[UNIV_PAGE_SIZE];
+#endif
+	
+	if ( trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
+		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->cur_off ) {
+			n_flush = srv_io_capacity;
+		}
+		else{
+			/* no need to flush */
+			return (0);
+		}
+	}
+	else{
+		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->fc_size ) {
+			n_flush = srv_io_capacity;
+		}
+		else{
+			n_flush = trx_doublewrite->fc_size - trx_doublewrite->flush_off;
+		}
+	}
+
+	ret = fil_io(OS_FILE_READ, TRUE,
+		FLASH_CACHE_SPACE, 0,
+		trx_doublewrite->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
+		trx_doublewrite->read_buf, NULL);
+
+	if ( ret != DB_SUCCESS ){
+		fprintf(
+			stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
+			"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
+			n_flush,
+			trx_doublewrite->flush_off,
+			trx_doublewrite->flush_round,
+			trx_doublewrite->cur_off,
+			trx_doublewrite->cur_round
+			);
+		ut_error;
+	}
+	for(i = 0; i < n_flush; i++){
+
+		page = trx_doublewrite->read_buf[i*UNIV_PAGE_SIZE];
+		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+#ifdef UNIV_DEBUG
+		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
+		fil_io(OS_FILE_READ,TRUE,space,offset,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
+		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
+		if ( lsn <= lsn2 ){
+			fprintf(stderr,"InnoDB: Flash Cache[Error]: "
+				"try to flush page lsn: %lu."
+				"But page lsn is &lu.\n",
+				lsn,
+				lsn2);
+			ut_error;
+		}
+#endif
+		fil_io(OS_FILE_WRITE,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+	}
+
+	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
+		trx_doublewrite->flush_off = 0;
+		trx_doublewrite->flush_round++;
+	}
+	else{
+		trx_doublewrite->flush_off += n_flush;
+	}
+	return n_flush;
+
 }
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG

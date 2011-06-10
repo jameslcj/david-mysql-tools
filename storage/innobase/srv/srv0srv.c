@@ -86,6 +86,10 @@ Created 10/8/1995 Heikki Tuuri
 #include "mysql/plugin.h"
 #include "mysql/service_thd_wait.h"
 
+
+UNIV_INTERN ulong	srv_flash_cache_size = 0;
+UNIV_INTERN char*	srv_flash_cache_file = NULL;
+
 /* The following counter is incremented whenever there is some user activity
 in the server */
 UNIV_INTERN ulint	srv_activity_count	= 0;
@@ -3208,4 +3212,51 @@ srv_que_task_enqueue_low(
 	srv_release_threads(SRV_WORKER, 1);
 
 	mutex_exit(&kernel_mutex);
+}
+
+/*********************************************************************//**
+The master thread controlling the server.
+@return	a dummy parameter */
+UNIV_INTERN
+os_thread_ret_t
+srv_flash_cache_thread(
+/*==============*/
+	void*	arg __attribute__((unused)))
+			/*!< in: a dummy parameter required by
+			os_thread_create */
+{
+	ulint		next_itr_time;
+	os_event_t	event;
+
+	srv_table_reserve_slot(SRV_FLASH_CACHE);
+
+	mutex_enter(&kernel_mutex);
+
+	srv_n_threads_active[SRV_FLASH_CACHE]++;
+
+	mutex_exit(&kernel_mutex);
+
+	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+		ulint n_flush;
+
+		n_flush = buf_flush_flash_cache_page();
+
+		if ( n_flush == 0 ){
+			os_thread_sleep(1000);
+		}
+
+	}
+
+	if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+		/* This is only extra safety, the thread should exit
+		already when the event wait ends */
+		if ( trx_doublewrite->flush_off == trx_doublewrite->cur_off 
+			&& trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
+
+			os_thread_exit(NULL);
+		}
+		buf_flush_flash_cache_page();
+	}
+
+	OS_THREAD_DUMMY_RETURN;	/* Not reached, avoid compiler warning */
 }

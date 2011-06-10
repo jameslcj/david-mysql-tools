@@ -1832,6 +1832,10 @@ innobase_start_or_create_for_mysql(void)
 	os_thread_create(&srv_master_thread, NULL, thread_ids
 			 + (1 + SRV_MAX_N_IO_THREADS));
 
+	if( srv_flash_cache_size > 0 ){
+		os_thread_create(&srv_flash_cache_thread, NULL, NULL);
+	}
+
 	/* Currently we allow only a single purge thread. */
 	ut_a(srv_n_purge_threads == 0 || srv_n_purge_threads == 1);
 

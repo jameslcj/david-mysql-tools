@@ -42,6 +42,9 @@ Created 3/26/1996 Heikki Tuuri
 #include "read0types.h"
 #include "page0types.h"
 
+/* flash cache space id */
+#define FLASH_CACHE_SPACE 0xAAAAAAAUL
+
 /** In a MySQL replication slave, in crash recovery we store the master log
 file name and position here. */
 /* @{ */
@@ -574,6 +577,15 @@ identifier is added to this 64-bit constant. */
 	 | TRX_SYS_FILE_FORMAT_TAG_MAGIC_N_LOW)
 /* @} */
 
+/** Flash cache block strunct */
+struct trx_flashcache_block_struct{
+	unsigned	space:32;	/*!< tablespace id */
+	unsigned	offset:32;	/*!< page number */
+	unsigned	fil_offset:32;	/*!< flash cache page number */
+	unsigned	used:1;			/*!< whether it is used */
+	trx_flashcache_block_t* hash;	/*!< hash chain */
+};
+
 /** Doublewrite control struct */
 struct trx_doublewrite_struct{
 	mutex_t	mutex;		/*!< mutex protecting the first_free field and
@@ -592,6 +604,23 @@ struct trx_doublewrite_struct{
 	buf_page_t**
 		buf_block_arr;	/*!< array to store pointers to the buffer
 				blocks which have been cached to write_buf */
+	/* @} */
+
+	/** @Flash cache fields */
+
+	/* @{ */
+	hash_table_t*	fc_hash;
+					/*!< hash table of flash cache pages */
+	mutex_t			fc_hash_mutex;
+					/*!< mutex protecting the hash table for flash cache pages */
+	ulint			fc_hash_partition;
+	ulong			fc_size; /*!< flash cache size */
+	ulint			cur_off; /*!< write to flash cache offset */
+	ulint			flush_off; /*!< flush to disk this offset */
+	ib_uint64_t		cur_round; /* write round */
+	ib_uint64_t		flush_round; /* flush round */
+	trx_flashcache_block_t* block; /* flash cache block */
+	byte*			read_buf;	/* read buf */
 };
 
 /** The transaction system central memory data structure; protected by the

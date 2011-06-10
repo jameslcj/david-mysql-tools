@@ -33,6 +33,14 @@ Created 11/5/1995 Heikki Tuuri
 #include "buf0types.h"
 #include "log0log.h"
 
+/******************************************************************//**
+Flush pages from flash cache.
+@return	number of pages to be flush to tablespace */
+UNIV_INTERN
+ulint
+buf_flush_flash_cache_page(
+/*===================*/
+);
 /********************************************************************//**
 Remove a block from the flush list of modified blocks. */
 UNIV_INTERN

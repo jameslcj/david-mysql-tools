@@ -48,6 +48,9 @@ Created 10/10/1995 Heikki Tuuri
 #include "que0types.h"
 #include "trx0types.h"
 
+extern ulong	srv_flash_cache_size;
+extern char*	srv_flash_cache_file;
+
 extern const char*	srv_main_thread_op_info;
 
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
@@ -441,10 +444,21 @@ typedef enum srv_stats_method_name_enum		srv_stats_method_name_t;
 enum srv_thread_type {
 	SRV_WORKER = 0,	/**< threads serving parallelized queries and
 			queries released from lock wait */
+	SRV_FLASH_CACHE, /**< thread to control the flush of 
+					 flash cache pages*/
 	SRV_MASTER	/**< the master thread, (whose type number must
 			be biggest) */
 };
 
+/*********************************************************************//**
+The master thread controlling the server.
+@return	a dummy parameter */
+UNIV_INTERN
+os_thread_ret_t
+srv_flash_cache_thread(
+/*==============*/
+	void*	arg);	/*!< in: a dummy parameter required by
+			os_thread_create */
 /*********************************************************************//**
 Boots Innobase server.
 @return	DB_SUCCESS or error code */

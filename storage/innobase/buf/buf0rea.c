@@ -145,9 +145,37 @@ buf_read_page_low(
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
-		*err = fil_io(OS_FILE_READ | wake_later,
-			      sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
-			      ((buf_block_t*) bpage)->frame, bpage);
+		if ( srv_flash_cache_size > 0 ){
+			trx_flashcache_block_t* b;
+
+			mutex_enter(&trx_doublewrite->fc_hash_mutex);			
+			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(bpage->space,bpage->offset),
+				trx_flashcache_block_t*,b,
+				ut_ad(1),
+				bpage->space == b->space && bpage->offset == b->offset);
+			if ( b ){
+				*err = fil_io(OS_FILE_READ | wake_later,
+					sync, FLASH_CACHE_SPACE, 0, b->fil_offset, 0, UNIV_PAGE_SIZE,
+					((buf_block_t*) bpage)->frame, bpage);
+				mutex_exit(&trx_doublewrite->fc_hash_mutex);
+
+				ut_ad(mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_OFFSET) == offset );
+				ut_ad(mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) == space );
+
+			}
+			else{
+				mutex_exit(&trx_doublewrite->fc_hash_mutex);
+				*err = fil_io(OS_FILE_READ | wake_later,
+						  sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
+						  ((buf_block_t*) bpage)->frame, bpage);
+			}
+		}
+		else{
+			*err = fil_io(OS_FILE_READ | wake_later,
+					  sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
+					  ((buf_block_t*) bpage)->frame, bpage);
+		}
 	}
 	thd_wait_end(NULL);
 	ut_a(*err == DB_SUCCESS);
