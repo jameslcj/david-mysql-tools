@@ -620,6 +620,7 @@ struct trx_doublewrite_struct{
 	ib_uint64_t		cur_round; /* write round */
 	ib_uint64_t		flush_round; /* flush round */
 	trx_flashcache_block_t* block; /* flash cache block */
+	byte*			read_buf_unalign; /* unalign read buf */
 	byte*			read_buf;	/* read buf */
 };
 

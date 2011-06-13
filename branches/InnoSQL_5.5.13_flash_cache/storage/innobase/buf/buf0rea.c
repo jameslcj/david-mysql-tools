@@ -145,7 +145,7 @@ buf_read_page_low(
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
-		if ( srv_flash_cache_size > 0 ){
+		if ( trx_doublewrite && srv_flash_cache_size > 0 ){
 			trx_flashcache_block_t* b;
 
 			mutex_enter(&trx_doublewrite->fc_hash_mutex);			

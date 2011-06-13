@@ -180,14 +180,15 @@ trx_flash_cache_init(
 	int i ;
 
 	trx_doublewrite->cur_off = 0;
-	trx_doublewrite->flush_off = -1;
+	trx_doublewrite->flush_off = 0;
 	trx_doublewrite->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; /* first page using as flash cache header */
 	trx_doublewrite->fc_hash = hash_create(2 * trx_doublewrite->fc_size);
 	trx_doublewrite->cur_round = 0;
 	trx_doublewrite->flush_round = 0;
 	trx_doublewrite->fc_hash_partition = 2;
 	trx_doublewrite->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc_size);
-	trx_doublewrite->read_buf = ut_align(ut_malloc(srv_io_capacity+1),UNIV_PAGE_SIZE);
+	trx_doublewrite->read_buf_unalign = ut_malloc(srv_io_capacity+1);
+	trx_doublewrite->read_buf = ut_align(trx_doublewrite->read_buf_unalign,UNIV_PAGE_SIZE);
 
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
@@ -203,6 +204,18 @@ trx_flash_cache_init(
 	}
 }
 
+/****************************************************************//**
+Free the flash cahce at database shut down. */
+static
+void
+trx_flash_cache_free(
+/*=================*/
+){
+	mem_free(trx_doublewrite->read_buf_unalign);
+	mem_free(trx_doublewrite->block);
+	hash_table_free(trx_doublewrite->fc_hash);
+	mutex_free(&trx_doublewrite->fc_hash_mutex);
+}
 /****************************************************************//**
 Creates or initialializes the doublewrite buffer at a database start. */
 static
@@ -1690,6 +1703,11 @@ trx_sys_close(void)
 	trx_doublewrite->buf_block_arr = NULL;
 
 	mutex_free(&trx_doublewrite->mutex);
+
+	if ( srv_flash_cache_size > 0 ){
+		trx_flash_cache_free();
+	}
+
 	mem_free(trx_doublewrite);
 	trx_doublewrite = NULL;
 
@@ -1733,5 +1751,6 @@ trx_sys_close(void)
 
 	trx_sys = NULL;
 	mutex_exit(&kernel_mutex);
+
 }
 #endif /* !UNIV_HOTBACKUP */
