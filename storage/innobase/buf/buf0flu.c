@@ -982,9 +982,9 @@ flush:
 
 			off = (start_off + i) % trx_doublewrite->fc_size;
 			
-			mutex_enter(&trx_doublewrite->mutex);
 			b = &trx_doublewrite->block[off];
 
+			mutex_enter(&trx_doublewrite->fc_hash_mutex);
 			if ( b->used ){
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
@@ -1018,7 +1018,7 @@ flush:
 				b);
 
 		
-			mutex_exit(&trx_doublewrite->mutex);
+			mutex_exit(&trx_doublewrite->fc_hash_mutex);
 			
 			buf_page_io_complete(&block->page);
 		}
@@ -2322,7 +2322,7 @@ buf_flush_flash_cache_page(
 	byte* page;
 	ulint space;
 	ulint offset;
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_CACHE_DEBUG
 	ulint lsn;
 	ulint lsn2;
 	byte page2[UNIV_PAGE_SIZE];
@@ -2334,7 +2334,9 @@ buf_flush_flash_cache_page(
 		}
 		else{
 			/* no need to flush */
-			return (0);
+			n_flush = trx_doublewrite->cur_off - trx_doublewrite->flush_off;
+			if ( n_flush == 0 )
+				return (0);
 		}
 	}
 	else{
@@ -2365,12 +2367,12 @@ buf_flush_flash_cache_page(
 	}
 	for(i = 0; i < n_flush; i++){
 
-		page = trx_doublewrite->read_buf[i*UNIV_PAGE_SIZE];
+		page = trx_doublewrite->read_buf + i*UNIV_PAGE_SIZE;
 		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_CACHE_DEBUG
 		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
-		fil_io(OS_FILE_READ,TRUE,space,offset,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
+		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
 		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
 		if ( lsn <= lsn2 ){
 			fprintf(stderr,"InnoDB: Flash Cache[Error]: "

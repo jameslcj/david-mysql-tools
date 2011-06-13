@@ -685,7 +685,7 @@ Unix.*/
 
 /* Thread slot in the thread table */
 struct srv_slot_struct{
-	unsigned	type:1;		/*!< thread type: user, utility etc. */
+	unsigned	type:2;		/*!< thread type: user, utility etc. */
 	unsigned	in_use:1;	/*!< TRUE if this slot is in use */
 	unsigned	suspended:1;	/*!< TRUE if the thread is waiting
 					for the event of this slot */
@@ -833,6 +833,7 @@ srv_thread_type_validate(
 {
 	switch (type) {
 	case SRV_WORKER:
+	case SRV_FLASH_CACHE:
 	case SRV_MASTER:
 		return(TRUE);
 	}
@@ -3225,19 +3226,17 @@ srv_flash_cache_thread(
 			/*!< in: a dummy parameter required by
 			os_thread_create */
 {
-	ulint		next_itr_time;
-	os_event_t	event;
-
-	srv_table_reserve_slot(SRV_FLASH_CACHE);
+	srv_slot_t*	slot;
+	ulint n_flush;	
 
 	mutex_enter(&kernel_mutex);
 
-	srv_n_threads_active[SRV_FLASH_CACHE]++;
+	slot = srv_table_reserve_slot(SRV_FLASH_CACHE);
+	++srv_n_threads_active[SRV_FLASH_CACHE];
 
 	mutex_exit(&kernel_mutex);
 
-	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
-		ulint n_flush;
+	while (srv_shutdown_state != SRV_SHUTDOWN_EXIT_THREADS) {
 
 		n_flush = buf_flush_flash_cache_page();
 
@@ -3247,11 +3246,20 @@ srv_flash_cache_thread(
 
 	}
 
-	if (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+	while (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
 		/* This is only extra safety, the thread should exit
 		already when the event wait ends */
 		if ( trx_doublewrite->flush_off == trx_doublewrite->cur_off 
 			&& trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
+			
+			mutex_enter(&kernel_mutex);
+
+			/* Decrement the active count. */
+			srv_suspend_thread(slot);
+
+			slot->in_use = FALSE;
+
+			mutex_exit(&kernel_mutex);
 
 			os_thread_exit(NULL);
 		}

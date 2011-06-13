@@ -5133,6 +5133,15 @@ buf_print_io(
 		}
 	}
 
+	if ( srv_flash_cache_size > 0 ){
+		fputs("----------------------\n"
+		"FLASH CACHE INFO\n"
+		"----------------------\n", file);
+		fprintf(file,"flash cache location is: %lu(%lu), flush to %lu(%lu)\n",
+			trx_doublewrite->cur_off,trx_doublewrite->cur_round,
+			trx_doublewrite->flush_off,trx_doublewrite->flush_round);
+	}
+
 	mem_free(pool_info);
 }
 

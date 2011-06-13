@@ -446,7 +446,7 @@ enum srv_thread_type {
 			queries released from lock wait */
 	SRV_FLASH_CACHE, /**< thread to control the flush of 
 					 flash cache pages*/
-	SRV_MASTER	/**< the master thread, (whose type number must
+	SRV_MASTER /**< the master thread, (whose type number must
 			be biggest) */
 };
 
