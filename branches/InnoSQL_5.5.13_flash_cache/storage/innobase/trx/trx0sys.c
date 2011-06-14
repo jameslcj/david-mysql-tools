@@ -178,6 +178,7 @@ trx_flash_cache_init(
 /*=================*/
 ){
 	int i ;
+	ibool success;
 
 	trx_doublewrite->cur_off = 0;
 	trx_doublewrite->flush_off = 0;
@@ -192,8 +193,14 @@ trx_flash_cache_init(
 
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
-	fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
-	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+
+	success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
+	if ( !success ){
+		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
+		ut_error;
+	}
+
+	fil_node_create(srv_flash_cache_file, trx_doublewrite->fc_size, FLASH_CACHE_SPACE, FALSE);
 
 	for(i=0;i<trx_doublewrite->fc_size;i++){
 		trx_doublewrite->block[i].fil_offset = i*UNIV_PAGE_SIZE;

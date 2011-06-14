@@ -868,7 +868,7 @@ flush:
 			if ( trx_doublewrite->cur_off + trx_doublewrite->first_free < trx_doublewrite->fc_size ){
 				/* we have space to cache the page write */
 				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
-					trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
+					trx_doublewrite->cur_off, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
 					   (void*) trx_doublewrite->write_buf, NULL);
 				trx_doublewrite->cur_off = trx_doublewrite->cur_off +  trx_doublewrite->first_free;
 				if ( trx_doublewrite->cur_off == trx_doublewrite->fc_size ){
@@ -890,12 +890,12 @@ flush:
 				}
 				/* write first buf */
 				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
-					trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, len1*UNIV_PAGE_SIZE,
+					trx_doublewrite->cur_off, 0, len1*UNIV_PAGE_SIZE,
 					   (void*) trx_doublewrite->write_buf, NULL);
 				/* write second buf, start from 0 offset */
 				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
 					0, 0, len2*UNIV_PAGE_SIZE,
-					   (void*) trx_doublewrite->write_buf[len1*UNIV_PAGE_SIZE], NULL);
+					   (void*) (trx_doublewrite->write_buf + len1*UNIV_PAGE_SIZE), NULL);
 				trx_doublewrite->cur_off = len2;
 				trx_doublewrite->cur_round = trx_doublewrite->cur_round + 1;
 			}
@@ -912,7 +912,7 @@ flush:
 			}
 			/* write second buf, start from 0 offset */
 			fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
-				trx_doublewrite->cur_off*UNIV_PAGE_SIZE, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
+				trx_doublewrite->cur_off, 0, trx_doublewrite->first_free*UNIV_PAGE_SIZE,
 					(void*) trx_doublewrite->write_buf, NULL);
 			trx_doublewrite->cur_off = trx_doublewrite->cur_off + trx_doublewrite->first_free;
 
@@ -2328,6 +2328,9 @@ buf_flush_flash_cache_page(
 	byte page2[UNIV_PAGE_SIZE];
 #endif
 	
+	//return (0);
+
+	mutex_enter(&trx_doublewrite->mutex);
 	if ( trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
 		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->cur_off ) {
 			n_flush = srv_io_capacity;
@@ -2335,8 +2338,10 @@ buf_flush_flash_cache_page(
 		else{
 			/* no need to flush */
 			n_flush = trx_doublewrite->cur_off - trx_doublewrite->flush_off;
-			if ( n_flush == 0 )
+			if ( n_flush == 0 ){
+				mutex_exit(&trx_doublewrite->mutex);
 				return (0);
+			}
 		}
 	}
 	else{
@@ -2348,43 +2353,44 @@ buf_flush_flash_cache_page(
 		}
 	}
 
-	ret = fil_io(OS_FILE_READ, TRUE,
-		FLASH_CACHE_SPACE, 0,
-		trx_doublewrite->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
-		trx_doublewrite->read_buf, NULL);
 
-	if ( ret != DB_SUCCESS ){
-		fprintf(
-			stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
-			"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
-			n_flush,
-			trx_doublewrite->flush_off,
-			trx_doublewrite->flush_round,
-			trx_doublewrite->cur_off,
-			trx_doublewrite->cur_round
-			);
-		ut_error;
-	}
-	for(i = 0; i < n_flush; i++){
-
-		page = trx_doublewrite->read_buf + i*UNIV_PAGE_SIZE;
-		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
-#ifdef UNIV_FLASH_CACHE_DEBUG
-		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
-		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
-		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
-		if ( lsn <= lsn2 ){
-			fprintf(stderr,"InnoDB: Flash Cache[Error]: "
-				"try to flush page lsn: %lu."
-				"But page lsn is &lu.\n",
-				lsn,
-				lsn2);
-			ut_error;
-		}
-#endif
-		fil_io(OS_FILE_WRITE,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
-	}
+//	ret = fil_io(OS_FILE_READ, TRUE,
+//		FLASH_CACHE_SPACE, 0,
+//		trx_doublewrite->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
+//		trx_doublewrite->read_buf, NULL);
+//
+//	if ( ret != DB_SUCCESS ){
+//		fprintf(
+//			stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
+//			"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
+//			n_flush,
+//			trx_doublewrite->flush_off,
+//			trx_doublewrite->flush_round,
+//			trx_doublewrite->cur_off,
+//			trx_doublewrite->cur_round
+//			);
+//		ut_error;
+//	}
+//	for(i = 0; i < n_flush; i++){
+//
+//		page = trx_doublewrite->read_buf + i*UNIV_PAGE_SIZE;
+//		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+//		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+//#ifdef UNIV_FLASH_CACHE_DEBUG
+//		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
+//		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
+//		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
+//		if ( lsn <= lsn2 ){
+//			fprintf(stderr,"InnoDB: Flash Cache[Error]: "
+//				"try to flush page lsn: %lu."
+//				"But page lsn is &lu.\n",
+//				lsn,
+//				lsn2);
+//			ut_error;
+//		}
+//#endif
+//		fil_io(OS_FILE_WRITE,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+//	}
 
 	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
 		trx_doublewrite->flush_off = 0;
@@ -2393,6 +2399,7 @@ buf_flush_flash_cache_page(
 	else{
 		trx_doublewrite->flush_off += n_flush;
 	}
+	mutex_exit(&trx_doublewrite->mutex);
 	return n_flush;
 
 }
