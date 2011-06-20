@@ -159,6 +159,7 @@ buf_read_page_low(
 					sync, FLASH_CACHE_SPACE, 0, b->fil_offset, 0, UNIV_PAGE_SIZE,
 					((buf_block_t*) bpage)->frame, bpage);
 				mutex_exit(&trx_doublewrite->fc_hash_mutex);
+				srv_flash_cache_read++;
 
 				ut_ad(mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_OFFSET) == offset );
 				ut_ad(mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) == space );
