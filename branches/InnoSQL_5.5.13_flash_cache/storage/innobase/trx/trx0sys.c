@@ -188,7 +188,7 @@ trx_flash_cache_init(
 	trx_doublewrite->flush_round = 0;
 	trx_doublewrite->fc_hash_partition = 2;
 	trx_doublewrite->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc_size);
-	trx_doublewrite->read_buf_unalign = ut_malloc(srv_io_capacity+1);
+	trx_doublewrite->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
 	trx_doublewrite->read_buf = ut_align(trx_doublewrite->read_buf_unalign,UNIV_PAGE_SIZE);
 
 	mutex_create(PFS_NOT_INSTRUMENTED,
@@ -218,8 +218,8 @@ void
 trx_flash_cache_free(
 /*=================*/
 ){
-	mem_free(trx_doublewrite->read_buf_unalign);
-	mem_free(trx_doublewrite->block);
+	ut_free(trx_doublewrite->read_buf_unalign);
+	ut_free(trx_doublewrite->block);
 	hash_table_free(trx_doublewrite->fc_hash);
 	mutex_free(&trx_doublewrite->fc_hash_mutex);
 }

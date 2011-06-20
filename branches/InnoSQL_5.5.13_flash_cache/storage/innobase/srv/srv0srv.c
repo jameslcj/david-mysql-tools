@@ -89,6 +89,9 @@ Created 10/8/1995 Heikki Tuuri
 
 UNIV_INTERN ulong	srv_flash_cache_size = 0;
 UNIV_INTERN char*	srv_flash_cache_file = NULL;
+UNIV_INTERN ulint	srv_flash_cache_read = 0;
+UNIV_INTERN ulint	srv_flash_cache_write = 0;
+UNIV_INTERN ulint	srv_flash_cache_flush = 0;
 
 /* The following counter is incremented whenever there is some user activity
 in the server */
@@ -3236,17 +3239,17 @@ srv_flash_cache_thread(
 
 	mutex_exit(&kernel_mutex);
 
-	while (srv_shutdown_state != SRV_SHUTDOWN_EXIT_THREADS) {
+	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
 		n_flush = buf_flush_flash_cache_page();
 
 		if ( n_flush == 0 ){
-			os_thread_sleep(1000);
+			os_thread_sleep(100000);
 		}
 
 	}
 
-	while (srv_shutdown_state == SRV_SHUTDOWN_EXIT_THREADS) {
+	while ( 1 ){
 		/* This is only extra safety, the thread should exit
 		already when the event wait ends */
 		if ( trx_doublewrite->flush_off == trx_doublewrite->cur_off 
