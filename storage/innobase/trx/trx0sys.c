@@ -177,7 +177,7 @@ void
 trx_flash_cache_init(
 /*=================*/
 ){
-	int i ;
+	ulong i ;
 	ibool success;
 
 	trx_doublewrite->cur_off = 0;
@@ -200,10 +200,10 @@ trx_flash_cache_init(
 		ut_error;
 	}
 
-	fil_node_create(srv_flash_cache_file, trx_doublewrite->fc_size, FLASH_CACHE_SPACE, FALSE);
+	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
 
 	for(i=0;i<trx_doublewrite->fc_size;i++){
-		trx_doublewrite->block[i].fil_offset = i*UNIV_PAGE_SIZE;
+		trx_doublewrite->block[i].fil_offset = i;
 		trx_doublewrite->block[i].space = 0;
 		trx_doublewrite->block[i].offset = 0;
 		trx_doublewrite->block[i].used = 0;

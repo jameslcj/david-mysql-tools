@@ -34,6 +34,11 @@ Created 11/5/1995 Heikki Tuuri
 #include "log0log.h"
 
 /******************************************************************//**
+Check flash cache consistency */
+UNIV_INTERN
+void
+buf_flush_flash_cache_validate();
+/******************************************************************//**
 Flush pages from flash cache.
 @return	number of pages to be flush to tablespace */
 UNIV_INTERN
