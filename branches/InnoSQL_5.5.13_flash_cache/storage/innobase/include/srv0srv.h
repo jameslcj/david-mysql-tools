@@ -54,6 +54,7 @@ extern char*	srv_flash_cache_file;
 extern ulint	srv_flash_cache_read;
 extern ulint	srv_flash_cache_write;
 extern ulint	srv_flash_cache_flush;
+extern ulint	srv_flash_cache_merge_write;
 
 extern const char*	srv_main_thread_op_info;
 

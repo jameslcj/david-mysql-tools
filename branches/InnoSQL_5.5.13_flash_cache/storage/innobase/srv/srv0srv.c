@@ -92,6 +92,7 @@ UNIV_INTERN char*	srv_flash_cache_file = NULL;
 UNIV_INTERN ulint	srv_flash_cache_read = 0;
 UNIV_INTERN ulint	srv_flash_cache_write = 0;
 UNIV_INTERN ulint	srv_flash_cache_flush = 0;
+UNIV_INTERN ulint	srv_flash_cache_merge_write = 0;
 
 /* The following counter is incremented whenever there is some user activity
 in the server */

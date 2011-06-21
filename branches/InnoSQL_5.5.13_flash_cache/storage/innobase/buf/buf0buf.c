@@ -5138,14 +5138,15 @@ buf_print_io(
 		"FLASH CACHE INFO\n"
 		"----------------------\n", file);
 		fprintf(file,"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
-						"flash cache reads %lu, writes %lu, flush %lu\n",
-						trx_doublewrite->cur_off,
-						trx_doublewrite->cur_round,
-						trx_doublewrite->flush_off,
-						trx_doublewrite->flush_round,
-						srv_flash_cache_read,
-						srv_flash_cache_write,
-						srv_flash_cache_flush
+						"flash cache reads %lu, writes %lu, flush %lu(%lu)\n",
+						(ulong)trx_doublewrite->cur_off,
+						(ulong)trx_doublewrite->cur_round,
+						(ulong)trx_doublewrite->flush_off,
+						(ulong)trx_doublewrite->flush_round,
+						(ulong)srv_flash_cache_read,
+						(ulong)srv_flash_cache_write,
+						(ulong)srv_flash_cache_flush,
+						(ulong)srv_flash_cache_merge_write
 			);
 	}
 
