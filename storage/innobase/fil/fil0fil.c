@@ -4563,6 +4563,9 @@ fil_aio_wait(
 
 	if (fil_node->space->purpose == FIL_TABLESPACE) {
 		srv_set_io_thread_op_info(segment, "complete io for buf page");
+		if ( message == NULL ){
+			return ;
+		}
 		buf_page_io_complete(message);
 	} else {
 		srv_set_io_thread_op_info(segment, "complete io for log");
