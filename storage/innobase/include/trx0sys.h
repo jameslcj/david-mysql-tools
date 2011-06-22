@@ -577,6 +577,9 @@ identifier is added to this 64-bit constant. */
 	 | TRX_SYS_FILE_FORMAT_TAG_MAGIC_N_LOW)
 /* @} */
 
+#define flash_cache_mutex_enter() (mutex_enter(&trx_doublewrite->fc_mutex))
+#define flash_cache_mutex_exit()  (mutex_exit(&trx_doublewrite->fc_mutex))
+
 /** Flash cache block strunct */
 struct trx_flashcache_block_struct{
 	unsigned	space:32;	/*!< tablespace id */
@@ -609,6 +612,8 @@ struct trx_doublewrite_struct{
 	/** @Flash cache fields */
 
 	/* @{ */
+	mutex_t			fc_mutex;
+					/*!< mutex protecting flash cache */
 	hash_table_t*	fc_hash;
 					/*!< hash table of flash cache pages */
 	mutex_t			fc_hash_mutex;
