@@ -2506,10 +2506,12 @@ buf_flush_flash_cache_page(
 		ut_ad( offset == trx_doublewrite->block[start_offset+i].offset );
 #endif
 		if ( trx_doublewrite->block[start_offset+i].used ){
-			fil_io(OS_FILE_WRITE,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+			fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 			srv_flash_cache_merge_write++;
 		}
 	}
+
+	buf_flush_sync_datafiles();
 
 	flash_cache_mutex_enter();
 	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
