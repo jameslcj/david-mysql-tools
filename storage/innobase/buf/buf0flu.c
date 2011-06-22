@@ -2477,10 +2477,10 @@ buf_flush_flash_cache_page(
 			stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
 			"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
 			n_flush,
-			trx_doublewrite->flush_off,
-			trx_doublewrite->flush_round,
-			trx_doublewrite->cur_off,
-			trx_doublewrite->cur_round
+			(ulong)trx_doublewrite->flush_off,
+			(ulong)trx_doublewrite->flush_round,
+			(ulong)trx_doublewrite->cur_off,
+			(ulong)trx_doublewrite->cur_round
 			);
 		ut_error;
 	}
