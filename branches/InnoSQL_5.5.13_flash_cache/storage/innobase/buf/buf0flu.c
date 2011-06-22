@@ -701,7 +701,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 	byte _page[16384];
 #endif
 
-	ut_ad(mutex_own(&trx_doublewrite->mutex));
+	ut_ad(mutex_own(&trx_doublewrite->fc_mutex));
 
 	for (i = 0; i < trx_doublewrite->first_free; i++) {
 
@@ -969,6 +969,7 @@ flush:
 		start_off = trx_doublewrite->cur_off;
 		srv_flash_cache_write += trx_doublewrite->first_free;
 
+		flash_cache_mutex_enter();
 retry:
 		if ( trx_doublewrite->cur_round == trx_doublewrite->flush_round ){
 			/* in the same round */
@@ -997,9 +998,9 @@ retry1:
 					ut_print_timestamp(stderr);
 					fprintf(stderr,
 					"  InnoDB: WARNING: No space for write cache, waiting.(retry1)\n");
-					mutex_exit(&trx_doublewrite->mutex);
-					os_thread_sleep(1000);
-					mutex_enter(&trx_doublewrite->mutex);
+					flash_cache_mutex_exit();
+					os_thread_sleep(1000000);
+					flash_cache_mutex_enter();
 					goto retry1;
 				}
 				buf_flu_sync_flash_cache_hash_table(start_off,1);
@@ -1025,9 +1026,9 @@ retry1:
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
 					"  InnoDB: WARNING: No space for write cache, waiting.(retry)\n");
-					mutex_exit(&trx_doublewrite->mutex);
-					os_thread_sleep(1000);
-					mutex_enter(&trx_doublewrite->mutex);
+					flash_cache_mutex_exit();
+					os_thread_sleep(1000000);
+					flash_cache_mutex_enter();
 					goto retry;
 			}
 			buf_flu_sync_flash_cache_hash_table(start_off,1);
@@ -1039,6 +1040,7 @@ retry1:
 			trx_doublewrite->cur_off = trx_doublewrite->cur_off + trx_doublewrite->first_free;
 		}
 		fil_flush(FLASH_CACHE_SPACE);
+		flash_cache_mutex_exit();
 	}
 	else{
 		/* Now flush the doublewrite buffer data to disk */
@@ -2388,7 +2390,7 @@ buf_flush_flash_cache_validate(){
 	ulint space;
 	ulint offset;
 
-	mutex_enter(&trx_doublewrite->mutex);
+	flash_cache_mutex_enter();;
 	for(i=0; i<trx_doublewrite->fc_size; i++){
 		b = &trx_doublewrite->block[i];
 
@@ -2413,7 +2415,7 @@ buf_flush_flash_cache_validate(){
 		}
 		mutex_exit(&trx_doublewrite->fc_hash_mutex);
 	}
-	mutex_exit(&trx_doublewrite->mutex);
+	flash_cache_mutex_exit();;
 }
 
 /******************************************************************//**
@@ -2437,7 +2439,7 @@ buf_flush_flash_cache_page(
 	ulint start_offset = trx_doublewrite->flush_off;
 #endif
 	
-	mutex_enter(&trx_doublewrite->mutex);
+	flash_cache_mutex_enter();
 	if ( trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
 		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->cur_off ) {
 			n_flush = srv_io_capacity;
@@ -2446,7 +2448,7 @@ buf_flush_flash_cache_page(
 			/* no need to flush */
 			n_flush = trx_doublewrite->cur_off - trx_doublewrite->flush_off;
 			if ( n_flush == 0 ){
-				mutex_exit(&trx_doublewrite->mutex);
+				flash_cache_mutex_exit();
 				return (0);
 			}
 		}
@@ -2459,7 +2461,7 @@ buf_flush_flash_cache_page(
 			n_flush = trx_doublewrite->fc_size - trx_doublewrite->flush_off;
 		}
 	}
-	mutex_exit(&trx_doublewrite->mutex);
+	flash_cache_mutex_exit();
 
 	srv_flash_cache_flush += n_flush;
 
@@ -2509,7 +2511,7 @@ buf_flush_flash_cache_page(
 		}
 	}
 
-	mutex_enter(&trx_doublewrite->mutex);
+	flash_cache_mutex_enter();
 	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
 		trx_doublewrite->flush_off = 0;
 		trx_doublewrite->flush_round++;
@@ -2517,9 +2519,11 @@ buf_flush_flash_cache_page(
 	else{
 		trx_doublewrite->flush_off += n_flush;
 	}
-	mutex_exit(&trx_doublewrite->mutex);
+	flash_cache_mutex_exit();
 
+#ifdef UNIV_DEBUG
 	buf_flush_flash_cache_validate();
+#endif
 
 	return n_flush;
 

@@ -191,6 +191,9 @@ trx_flash_cache_init(
 	trx_doublewrite->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
 	trx_doublewrite->read_buf = ut_align(trx_doublewrite->read_buf_unalign,UNIV_PAGE_SIZE);
 
+
+	mutex_create(PFS_NOT_INSTRUMENTED,
+		&trx_doublewrite->fc_mutex, SYNC_DOUBLEWRITE);
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
 
@@ -222,6 +225,7 @@ trx_flash_cache_free(
 	ut_free(trx_doublewrite->block);
 	hash_table_free(trx_doublewrite->fc_hash);
 	mutex_free(&trx_doublewrite->fc_hash_mutex);
+	mutex_free(&trx_doublewrite->fc_mutex);
 }
 /****************************************************************//**
 Creates or initialializes the doublewrite buffer at a database start. */
