@@ -2432,11 +2432,12 @@ buf_flush_flash_cache_page(
 	byte* page;
 	ulint space;
 	ulint offset;
+	ulint start_offset = trx_doublewrite->flush_off;
 #ifdef UNIV_DEBUG
 	ulint lsn;
 	ulint lsn2;
 	byte page2[UNIV_PAGE_SIZE];
-	ulint start_offset = trx_doublewrite->flush_off;
+
 #endif
 	
 	flash_cache_mutex_enter();
