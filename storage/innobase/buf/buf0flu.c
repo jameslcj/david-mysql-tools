@@ -2462,7 +2462,7 @@ ibool is_shutdown
 		}
 	}
 	else{
-		if ( (trx_doublewrite->fc_size - trx_doublewrite->flush_off + trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
+		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
 				&& !is_shutdown){
 			flash_cache_mutex_exit();
 			return (0);

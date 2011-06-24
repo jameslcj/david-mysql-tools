@@ -3245,7 +3245,7 @@ srv_flash_cache_thread(
 		n_flush = buf_flush_flash_cache_page(FALSE);
 
 		if ( n_flush == 0 ){
-			os_thread_sleep(100000);
+			os_thread_sleep(1000);
 		}
 
 	}
