@@ -2444,7 +2444,8 @@ ibool is_shutdown
 	flash_cache_mutex_enter();
 	if ( trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
 		if ( (trx_doublewrite->cur_round - trx_doublewrite->flush_round) < 0.3*trx_doublewrite->fc_size
-			&& !is_shutdown){
+				&& !is_shutdown){
+			flash_cache_mutex_exit();
 			return (0);
 		}
 
@@ -2462,7 +2463,8 @@ ibool is_shutdown
 	}
 	else{
 		if ( (trx_doublewrite->fc_size - trx_doublewrite->flush_off + trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
-			&& !is_shutdown){
+				&& !is_shutdown){
+			flash_cache_mutex_exit();
 			return (0);
 		}
 		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->fc_size ) {
