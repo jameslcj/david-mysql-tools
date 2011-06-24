@@ -45,6 +45,7 @@ UNIV_INTERN
 ulint
 buf_flush_flash_cache_page(
 /*===================*/
+ibool is_shutdown
 );
 /********************************************************************//**
 Remove a block from the flush list of modified blocks. */

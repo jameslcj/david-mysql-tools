@@ -3242,7 +3242,7 @@ srv_flash_cache_thread(
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
-		n_flush = buf_flush_flash_cache_page();
+		n_flush = buf_flush_flash_cache_page(FALSE);
 
 		if ( n_flush == 0 ){
 			os_thread_sleep(100000);
@@ -3267,7 +3267,7 @@ srv_flash_cache_thread(
 
 			os_thread_exit(NULL);
 		}
-		buf_flush_flash_cache_page();
+		buf_flush_flash_cache_page(TRUE);
 	}
 
 	OS_THREAD_DUMMY_RETURN;	/* Not reached, avoid compiler warning */
