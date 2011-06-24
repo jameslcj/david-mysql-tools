@@ -196,7 +196,7 @@ trx_flash_cache_init(
 		&trx_doublewrite->fc_mutex, SYNC_DOUBLEWRITE);
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
-
+	
 	success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
 	if ( !success ){
 		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
