@@ -2443,35 +2443,32 @@ ibool is_shutdown
 	
 	flash_cache_mutex_enter();
 	if ( trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
-		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
-				&& !is_shutdown){
-			flash_cache_mutex_exit();
-			return (0);
-		}
-
 		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->cur_off ) {
 			n_flush = srv_io_capacity;
 		}
 		else{
-			/* no need to flush */
+			/* no enough space to flush */
 			n_flush = trx_doublewrite->cur_off - trx_doublewrite->flush_off;
 			if ( n_flush == 0 ){
 				flash_cache_mutex_exit();
 				return (0);
 			}
 		}
+		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
+				&& !is_shutdown){
+			n_flush = n_flush * 0.2;
+		}
 	}
 	else{
-		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
-				&& !is_shutdown){
-			flash_cache_mutex_exit();
-			return (0);
-		}
 		if ( trx_doublewrite->flush_off + srv_io_capacity <= trx_doublewrite->fc_size ) {
 			n_flush = srv_io_capacity;
 		}
 		else{
 			n_flush = trx_doublewrite->fc_size - trx_doublewrite->flush_off;
+		}
+		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
+				&& !is_shutdown){
+			n_flush = n_flush * 0.2;
 		}
 	}
 	flash_cache_mutex_exit();
@@ -2497,6 +2494,16 @@ ibool is_shutdown
 			);
 		ut_error;
 	}
+
+	flash_cache_mutex_enter();
+	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
+		trx_doublewrite->flush_off = 0;
+		trx_doublewrite->flush_round++;
+	}
+	else{
+		trx_doublewrite->flush_off += n_flush;
+	}
+	flash_cache_mutex_exit();
 
 	for(i = 0; i < n_flush; i++){
 
@@ -2526,15 +2533,7 @@ ibool is_shutdown
 
 	buf_flush_sync_datafiles();
 
-	flash_cache_mutex_enter();
-	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
-		trx_doublewrite->flush_off = 0;
-		trx_doublewrite->flush_round++;
-	}
-	else{
-		trx_doublewrite->flush_off += n_flush;
-	}
-	flash_cache_mutex_exit();
+
 
 #ifdef UNIV_DEBUG
 	buf_flush_flash_cache_validate();
