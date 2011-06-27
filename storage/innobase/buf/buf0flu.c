@@ -2456,7 +2456,12 @@ ibool is_shutdown
 		}
 		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			n_flush = n_flush * 0.1;
+			if ( srv_adaptive_flushing ){
+				n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
+			}
+			else{
+				n_flush = n_flush * 0.1;
+			}
 			if ( n_flush == 0 ){
 				flash_cache_mutex_exit();
 				return (0);
@@ -2472,7 +2477,12 @@ ibool is_shutdown
 		}
 		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			n_flush = n_flush * 0.1;
+			if ( srv_adaptive_flushing ){
+				n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
+			}
+			else{
+				n_flush = n_flush * 0.1;
+			}
 			if ( n_flush == 0 ){
 				flash_cache_mutex_exit();
 				return (0);
