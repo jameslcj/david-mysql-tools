@@ -3270,7 +3270,8 @@ srv_flash_cache_thread(
 			while ( count == 30 && write_off == trx_doublewrite->cur_off ){
 				buf_flush_flash_cache_page(TRUE);
 			}
-			count = 0;
+			if ( count == 30 )
+				count = 0;
 		}
 
 	}
