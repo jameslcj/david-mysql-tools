@@ -5154,7 +5154,7 @@ buf_print_io(
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
 						(ulong)srv_flash_cache_merge_write,
-						(ulong)(pool_info->page_read_delta == 0)?0:( srv_flash_cache_read - write_cache_stat.n_pages_read ) / pool_info->page_read_delta,
+						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - write_cache_stat.n_pages_read ) / pool_info->page_read_delta,
 						(ulong)difftime(cur_time,write_cache_stat.last_printout_time),
 						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/srv_buf_pool_reads
 
