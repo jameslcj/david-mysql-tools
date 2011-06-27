@@ -37,6 +37,8 @@ Created 11/5/1995 Heikki Tuuri
 #include "ut0rbt.h"
 #include "os0proc.h"
 
+
+
 /** @name Modes for buf_page_get_gen */
 /* @{ */
 #define BUF_GET			10	/*!< get always */
@@ -118,6 +120,16 @@ enum buf_page_state {
 					before putting to the free list */
 };
 
+struct write_cache_stat_struct{
+	ulint write_off;
+	ulint write_round;
+	ulint flush_off;
+	ulint flush_round;
+	ulint n_pages_write;
+	ulint n_pages_merge_write;
+	ulint n_pages_read;
+	time_t last_printout_time;
+};
 
 /** This structure defines information we will fetch from each buffer pool. It
 will be used to print table IO stats */
@@ -187,6 +199,7 @@ struct buf_pool_info_struct{
 };
 
 typedef struct buf_pool_info_struct	buf_pool_info_t;
+typedef struct write_cache_stat_struct write_cache_stat_t;
 
 #ifndef UNIV_HOTBACKUP
 /********************************************************************//**

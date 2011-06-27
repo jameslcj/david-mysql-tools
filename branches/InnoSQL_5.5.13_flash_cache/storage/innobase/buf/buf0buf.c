@@ -249,6 +249,9 @@ static const ulint BUF_PAGE_READ_MAX_RETRIES = 100;
 /** The buffer pools of the database */
 UNIV_INTERN buf_pool_t*	buf_pool_ptr;
 
+/** Write cache info */
+UNIV_INTERN write_cache_stat_t write_cache_stat;
+
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 static ulint	buf_dbg_counter	= 0; /*!< This is used to insert validation
 					operations in execution in the
@@ -5134,12 +5137,15 @@ buf_print_io(
 	}
 
 	if ( srv_flash_cache_size > 0 ){
+		
+		time_t cur_time = ut_time();
+
 		fputs("----------------------\n"
 		"FLASH CACHE INFO\n"
 		"----------------------\n", file);
 		fprintf(file,"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
 						"flash cache reads %lu, writes %lu, flush %lu(%lu)\n"
-						"flash cache read hit raio %.2f%%\n",
+						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
 						(ulong)trx_doublewrite->cur_off,
 						(ulong)trx_doublewrite->cur_round,
 						(ulong)trx_doublewrite->flush_off,
@@ -5148,7 +5154,10 @@ buf_print_io(
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
 						(ulong)srv_flash_cache_merge_write,
+						(ulong)( srv_flash_cache_read - write_cache_stat.n_pages_read ) / (difftime(cur_time,write_cache_stat.last_printout_time)+0.001),
+						(ulong)difftime(cur_time,write_cache_stat.last_printout_time),
 						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/srv_buf_pool_reads
+
 			);
 	}
 
@@ -5182,6 +5191,15 @@ buf_refresh_io_stats_all(void)
 		buf_pool = buf_pool_from_array(i);
 
 		buf_refresh_io_stats(buf_pool);
+	}
+	if( srv_flash_cache_size > 0 ){
+		write_cache_stat.flush_off = trx_doublewrite->flush_off;
+		write_cache_stat.flush_round = trx_doublewrite->flush_round;
+		write_cache_stat.write_off = trx_doublewrite->cur_off;
+		write_cache_stat.write_round = trx_doublewrite->cur_round;
+		write_cache_stat.n_pages_write = srv_flash_cache_flush;
+		write_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
+		write_cache_stat.last_printout_time = ut_time();
 	}
 }
 
