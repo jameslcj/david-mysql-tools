@@ -3255,7 +3255,6 @@ srv_flash_cache_thread(
 
 		if ( n_flush == 0 ){
 			os_thread_sleep(1000000);
-			count = 0;
 		}
 		else if ( n_flush >= PCT_IO(75) ){
 			os_thread_sleep(500);
