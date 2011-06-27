@@ -2456,7 +2456,11 @@ ibool is_shutdown
 		}
 		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			n_flush = n_flush * 0.2;
+			n_flush = n_flush * 0.1;
+			if ( n_flush == 0 ){
+				flash_cache_mutex_exit();
+				return (0);
+			}
 		}
 	}
 	else{
@@ -2468,7 +2472,11 @@ ibool is_shutdown
 		}
 		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			n_flush = n_flush * 0.2;
+			n_flush = n_flush * 0.1;
+			if ( n_flush == 0 ){
+				flash_cache_mutex_exit();
+				return (0);
+			}
 		}
 	}
 	flash_cache_mutex_exit();
@@ -2529,6 +2537,22 @@ ibool is_shutdown
 			fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 			srv_flash_cache_merge_write++;
 		}
+#ifdef UNIV_DEBUG
+		else{
+			trx_flashcache_block_t* b;
+			mutex_enter(&trx_doublewrite->fc_hash_mutex);			
+			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(space,offset),
+				trx_flashcache_block_t*,b,
+				ut_ad(1),
+				space == b->space && offset == b->offset);
+			mutex_exit(&trx_doublewrite->fc_hash_mutex);
+			ut_ad(b);
+			ut_ad(trx_doublewrite->block[b->fil_offset].used);
+			ut_ad(trx_doublewrite->block[b->fil_offset].space == space);
+			ut_ad(trx_doublewrite->block[b->fil_offset].offset == offset);
+		}
+#endif
 	}
 
 	buf_flush_sync_datafiles();

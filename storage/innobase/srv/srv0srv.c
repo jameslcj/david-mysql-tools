@@ -3232,6 +3232,9 @@ srv_flash_cache_thread(
 {
 	srv_slot_t*	slot;
 	ulint n_flush;	
+	register ulint cur_time;
+	ulint count = 0;
+	ulint write_off;
 
 	mutex_enter(&kernel_mutex);
 
@@ -3242,10 +3245,32 @@ srv_flash_cache_thread(
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
+		write_off = trx_doublewrite->cur_off;
+
+		cur_time = ut_time_ms();
+
 		n_flush = buf_flush_flash_cache_page(FALSE);
 
+		cur_time = ut_time_ms() - cur_time;
+
 		if ( n_flush == 0 ){
-			os_thread_sleep(1000);
+			os_thread_sleep(1000000);
+			count = 0;
+		}
+		else if ( n_flush >= PCT_IO(75) ){
+			os_thread_sleep(500);
+		}
+		else{
+			os_thread_sleep(ut_min(1000000,(1000-cur_time)*1000));
+		}
+
+		if ( write_off == trx_doublewrite->cur_off){
+			count = count + 1;
+			/* if there is no activity in 30 second, we flush as many page as we can */
+			while ( count == 30 && write_off == trx_doublewrite->cur_off ){
+				buf_flush_flash_cache_page(TRUE);
+			}
+			count = 0;
 		}
 
 	}
