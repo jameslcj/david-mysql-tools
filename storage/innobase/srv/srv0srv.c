@@ -3267,7 +3267,8 @@ srv_flash_cache_thread(
 			count = count + 1;
 			/* if there is no activity in 30 second, we flush as many page as we can */
 			while ( count == 30 && write_off == trx_doublewrite->cur_off ){
-				buf_flush_flash_cache_page(TRUE);
+				if ( buf_flush_flash_cache_page(TRUE) == 0 )
+					break;
 			}
 			if ( count == 30 )
 				count = 0;

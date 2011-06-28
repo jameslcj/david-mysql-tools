@@ -733,7 +733,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 			
 		b = &trx_doublewrite->block[off];
 
-		mutex_enter(&trx_doublewrite->fc_hash_mutex);
+		flash_cache_hash_mutex_enter(block->page.space,block->page.offset);
 
 		if ( stage == 1 ){
 			if ( b->used ){
@@ -790,7 +790,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 #endif
 			buf_page_io_complete(&block->page);	
 		}
-		mutex_exit(&trx_doublewrite->fc_hash_mutex);
+		flash_cache_hash_mutex_exit(block->page.space,block->page.offset);
 	}
 }
 /********************************************************************//**
@@ -2394,7 +2394,7 @@ buf_flush_flash_cache_validate(){
 	for(i=0; i<trx_doublewrite->fc_size; i++){
 		b = &trx_doublewrite->block[i];
 
-		mutex_enter(&trx_doublewrite->fc_hash_mutex);
+		flash_cache_hash_mutex_enter(b->space,b->offset);
 		if ( b->used ){
 			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
 				buf_page_address_fold(b->space,b->offset),
@@ -2413,7 +2413,7 @@ buf_flush_flash_cache_validate(){
 		else{
 			/* currently we do not check this */
 		}
-		mutex_exit(&trx_doublewrite->fc_hash_mutex);
+		flash_cache_hash_mutex_exit(b->space,b->offset);
 	}
 	flash_cache_mutex_exit();;
 }
@@ -2550,13 +2550,13 @@ ibool is_shutdown
 #ifdef UNIV_DEBUG
 		else{
 			trx_flashcache_block_t* b;
-			mutex_enter(&trx_doublewrite->fc_hash_mutex);			
+			flash_cache_hash_mutex_enter(space,offset);
 			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
 				buf_page_address_fold(space,offset),
 				trx_flashcache_block_t*,b,
 				ut_ad(1),
 				space == b->space && offset == b->offset);
-			mutex_exit(&trx_doublewrite->fc_hash_mutex);
+			flash_cache_hash_mutex_exit(space,offset);
 			ut_ad(b);
 			ut_ad(trx_doublewrite->block[b->fil_offset].used);
 			ut_ad(trx_doublewrite->block[b->fil_offset].space == space);

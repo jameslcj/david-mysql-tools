@@ -153,7 +153,7 @@ buf_read_page_low(
 			
 			//buf_flush_flash_cache_validate();
 
-			mutex_enter(&trx_doublewrite->fc_hash_mutex);			
+			flash_cache_hash_mutex_enter(space,offset);		
 			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
 				buf_page_address_fold(space,offset),
 				trx_flashcache_block_t*,b,
@@ -168,7 +168,7 @@ buf_read_page_low(
 				*err = fil_io(OS_FILE_READ | wake_later,
 					sync, FLASH_CACHE_SPACE, 0, b->fil_offset, 0, UNIV_PAGE_SIZE,
 					((buf_block_t*) bpage)->frame, bpage);
-				mutex_exit(&trx_doublewrite->fc_hash_mutex);
+				flash_cache_hash_mutex_exit(space,offset);		
 				srv_flash_cache_read++;
 
 #ifdef UNIV_DEBUG
@@ -188,7 +188,7 @@ buf_read_page_low(
 
 			}
 			else{
-				mutex_exit(&trx_doublewrite->fc_hash_mutex);
+				flash_cache_hash_mutex_exit(space,offset);
 				*err = fil_io(OS_FILE_READ | wake_later,
 						  sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
 						  ((buf_block_t*) bpage)->frame, bpage);

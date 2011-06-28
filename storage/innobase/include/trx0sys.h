@@ -579,6 +579,13 @@ identifier is added to this 64-bit constant. */
 
 #define flash_cache_mutex_enter() (mutex_enter(&trx_doublewrite->fc_mutex))
 #define flash_cache_mutex_exit()  (mutex_exit(&trx_doublewrite->fc_mutex))
+#define flash_cache_hash_mutex_enter(space,offset) do{\
+	hash_mutex_enter(trx_doublewrite->fc_hash,buf_page_address_fold(space,offset));\
+}while(0)
+#define flash_cache_hash_mutex_exit(space,offset) do{\
+	hash_mutex_exit(trx_doublewrite->fc_hash,buf_page_address_fold(space,offset));\
+}while(0)
+
 
 /** Flash cache block strunct */
 struct trx_flashcache_block_struct{
@@ -616,9 +623,6 @@ struct trx_doublewrite_struct{
 					/*!< mutex protecting flash cache */
 	hash_table_t*	fc_hash;
 					/*!< hash table of flash cache pages */
-	mutex_t			fc_hash_mutex;
-					/*!< mutex protecting the hash table for flash cache pages */
-	ulint			fc_hash_partition;
 	ulong			fc_size; /*!< flash cache size */
 	ulint			cur_off; /*!< write to flash cache offset */
 	ulint			flush_off; /*!< flush to disk this offset */

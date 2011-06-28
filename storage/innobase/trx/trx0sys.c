@@ -43,6 +43,7 @@ Created 3/26/1996 Heikki Tuuri
 #include "log0recv.h"
 #include "os0file.h"
 #include "read0read.h"
+#include "ha0ha.h"
 
 /** The file format tag structure with id and name. */
 struct file_format_struct {
@@ -183,19 +184,19 @@ trx_flash_cache_init(
 	trx_doublewrite->cur_off = 0;
 	trx_doublewrite->flush_off = 0;
 	trx_doublewrite->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; /* first page using as flash cache header */
-	trx_doublewrite->fc_hash = hash_create(2 * trx_doublewrite->fc_size);
+#ifdef UNIV_SYNC_DEBUG
+	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4,0);
+#else
+	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4);
+#endif
 	trx_doublewrite->cur_round = 0;
 	trx_doublewrite->flush_round = 0;
-	trx_doublewrite->fc_hash_partition = 2;
 	trx_doublewrite->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc_size);
 	trx_doublewrite->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
 	trx_doublewrite->read_buf = ut_align(trx_doublewrite->read_buf_unalign,UNIV_PAGE_SIZE);
 
-
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_mutex, SYNC_DOUBLEWRITE);
-	mutex_create(PFS_NOT_INSTRUMENTED,
-		&trx_doublewrite->fc_hash_mutex, SYNC_DOUBLEWRITE);
 	
 	success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
 	if ( !success ){
@@ -223,8 +224,7 @@ trx_flash_cache_free(
 ){
 	ut_free(trx_doublewrite->read_buf_unalign);
 	ut_free(trx_doublewrite->block);
-	hash_table_free(trx_doublewrite->fc_hash);
-	mutex_free(&trx_doublewrite->fc_hash_mutex);
+	ha_clear(trx_doublewrite->fc_hash);
 	mutex_free(&trx_doublewrite->fc_mutex);
 }
 /****************************************************************//**
