@@ -187,7 +187,7 @@ trx_flash_cache_init(
 #ifdef UNIV_SYNC_DEBUG
 	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4,0);
 #else
-	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4);
+	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4,0);
 #endif
 	trx_doublewrite->cur_round = 0;
 	trx_doublewrite->flush_round = 0;
