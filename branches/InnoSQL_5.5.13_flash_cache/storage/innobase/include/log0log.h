@@ -41,6 +41,33 @@ Created 12/9/1995 Heikki Tuuri
 #include "sync0rw.h"
 #endif /* !UNIV_HOTBACKUP */
 
+#define FLASH_CACHE_BUFFER_SIZE			512
+
+#define FLASH_CACHE_LOG_CHKSUM			0
+#define FLASH_CACHE_LOG_USED			4
+#define FLASH_CACHE_LOG_NEED_RECOVERY	5
+#define FLASH_CACHE_LOG_FLUSH_OFFSET	6
+#define FLASH_CACHE_LOG_WRITE_OFFSET	10
+#define FLASH_CACHE_LOG_FLUSH_ROUND		14
+#define FLASH_CACHE_LOG_WRITE_ROUND		18
+#define FLASH_CACHE_LOG_CHKSUM2			( FLASH_CACHE_BUFFER_SIZE - 4 )
+
+/****************************************************************//**
+Start flash cache log recovery.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_recovery();
+
+UNIV_INTERN
+void
+flash_cache_log_commit(
+/*==========================================*/
+);
+
+/** Flash cache log */
+typedef struct flash_cache_log_struct flash_cache_log_t;
+
 /** Redo log buffer */
 typedef struct log_struct	log_t;
 /** Redo log group */
@@ -64,6 +91,14 @@ extern	ibool	log_debug_writes;
 /** Maximum number of log groups in log_group_struct::checkpoint_buf */
 #define LOG_MAX_N_GROUPS	32
 
+/****************************************************************//**
+Initialize flash cache log.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_init(
+/*==========================================*/
+);
 #ifndef UNIV_HOTBACKUP
 /****************************************************************//**
 Sets the global variable log_fsp_current_free_limit. Also makes a checkpoint,
@@ -959,6 +994,21 @@ struct log_struct{
 					become signaled */
 	/* @} */
 #endif /* UNIV_LOG_ARCHIVE */
+};
+
+struct flash_cache_log_struct{
+#ifdef __WIN__
+	HANDLE	file;
+#else
+	int			file
+#endif
+	byte*		buf;
+	byte*		buf_unaligned;
+	ulint		flush_offset;
+	ulint		flush_round;
+	ulint		write_offset;
+	ulint		write_round;
+	ibool		recovery;
 };
 
 /** Test if flush order mutex is owned. */

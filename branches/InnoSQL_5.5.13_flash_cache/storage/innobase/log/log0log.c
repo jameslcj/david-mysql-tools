@@ -75,6 +75,8 @@ reduce the size of the log.
 
 */
 
+UNIV_INTERN flash_cache_log_t* flash_cache_log = NULL;
+
 /* Current free limit of space 0; protected by the log sys mutex; 0 means
 uninitialized */
 UNIV_INTERN ulint	log_fsp_current_free_limit		= 0;
@@ -162,6 +164,314 @@ void
 log_io_complete_archive(void);
 /*=========================*/
 #endif /* UNIV_LOG_ARCHIVE */
+
+UNIV_INTERN
+ulint
+flash_cache_log_checksum(
+/*==========================================*/
+const byte* page, /*!< in: buffer page */
+ulint write_offset /*< in: write offset of flash cache */
+){
+	ulint checksum;
+
+	checksum = ut_fold_binary(page,write_offset);
+
+	checksum = checksum & 0xFFFFFFFFUL;
+
+	return checksum;
+}
+
+UNIV_INTERN
+void
+flash_cache_log_commit(
+/*==========================================*/
+){
+	ulint checksum;
+
+	ut_ad(mutex_own(&trx_doublewrite->fc_mutex));
+
+	if ( !srv_flash_cache_use_log )
+		return;
+	
+	checksum = flash_cache_log_checksum(flash_cache_log->buf,trx_doublewrite->cur_off);
+
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_CHKSUM,checksum);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_CHKSUM2,checksum);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_OFFSET,trx_doublewrite->flush_off);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_ROUND,trx_doublewrite->flush_round);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_OFFSET,trx_doublewrite->cur_off);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_ROUND,trx_doublewrite->cur_round);
+
+	os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
+	os_file_flush(flash_cache_log->file);
+}
+/****************************************************************//**
+Initialize flash cache log.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_init(
+/*==========================================*/
+){
+	ulint ret;
+
+	flash_cache_log = ut_malloc(sizeof(flash_cache_log_t));
+	flash_cache_log->file = os_file_create(innodb_file_data_key, srv_flash_cache_log_file_name,
+				  OS_FILE_CREATE, OS_FILE_NORMAL,
+				  OS_DATA_FILE, &ret);
+	flash_cache_log->buf_unaligned = ut_malloc(FLASH_CACHE_BUFFER_SIZE*2);
+	flash_cache_log->buf = ut_align(flash_cache_log->buf_unaligned,FLASH_CACHE_BUFFER_SIZE);
+	memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+	if ( ret ){
+		/* Create file success, it is the first time to create log file. */
+		mach_write_to_2(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,0);
+		os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
+		os_file_flush(flash_cache_log->file);
+		flash_cache_log->recovery = FALSE;
+	}
+	else{
+		/* We need to open the file */
+		flash_cache_log->file = os_file_create(innodb_file_data_key, srv_flash_cache_log_file_name,
+					OS_FILE_OPEN, OS_FILE_NORMAL,
+					OS_DATA_FILE, &ret);
+		if ( !ret ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB [Error}: Can't open flash cache log");
+			ut_error;
+		}
+		os_file_read(flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
+
+		flash_cache_log->recovery = mach_read_from_1(flash_cache_log->buf + FLASH_CACHE_LOG_NEED_RECOVERY) == 0 ? FALSE : TRUE;
+
+		if ( flash_cache_log->recovery ){
+			flash_cache_log->flush_offset = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_FLUSH_OFFSET );
+			flash_cache_log->flush_round = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_FLUSH_ROUND );
+			flash_cache_log->write_offset = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_WRITE_OFFSET );
+			flash_cache_log->write_round = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_WRITE_ROUND );
+
+			if ( flash_cache_log->flush_offset == flash_cache_log->write_offset
+				&& flash_cache_log->flush_round == flash_cache_log->write_round ){
+					flash_cache_log->recovery = FALSE;
+			}
+		}
+	}
+	ret = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
+	if ( !ret ){
+		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
+		ut_error;
+	}
+	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+}
+
+/****************************************************************//**
+Start flash cache log recovery.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_recovery_pages(
+/*==========================================*/
+ulint start_offset,
+ulint end_offset
+){
+	ulint i;
+	ulint j;
+	ulint ret;
+	byte* buf_unaligned;
+	byte* buf;
+	byte read_buf_unaligned[UNIV_PAGE_SIZE*2];
+	byte* read_buf;
+	byte* page;
+	ulint space;
+	ulint offset;
+	ulint lsn;
+	ulint lsn2;
+	ulint n_read;
+#ifdef UNIV_DEBUG
+	ulint space2;
+	ulint offset2;
+#endif
+	i = start_offset;
+	buf_unaligned = (byte*)ut_malloc(UNIV_PAGE_SIZE*(srv_flash_cache_recovery_pages_per_read+1));
+	buf = (byte*)ut_align(buf_unaligned,UNIV_PAGE_SIZE);
+	read_buf = (byte*)ut_align(read_buf_unaligned,UNIV_PAGE_SIZE);
+
+	while( i + srv_flash_cache_recovery_pages_per_read < end_offset ){
+		ret = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,i,0,srv_flash_cache_recovery_pages_per_read*UNIV_PAGE_SIZE,buf,NULL);
+		if ( ret != DB_SUCCESS ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB [Error]: Can not read flash cache, offset is %lu, read %lu pages.\n",
+				i,srv_flash_cache_recovery_pages_per_read);
+			ut_error;
+		}
+		for(j=0;j<srv_flash_cache_recovery_pages_per_read;j++){
+			page = buf + j*UNIV_PAGE_SIZE;
+			if ( buf_page_is_corrupted(page,0) ){
+				continue;
+			}
+			space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+			offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+			lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+			ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+			if ( ret != DB_SUCCESS ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+					space,offset);
+				ut_error;
+			}
+			lsn2 = mach_read_from_8(read_buf+FIL_PAGE_LSN);
+#ifdef UNIV_DEBUG
+			if ( lsn2 != 0 ){
+				space2 = mach_read_from_4(read_buf+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				offset2 = mach_read_from_4(read_buf+FIL_PAGE_OFFSET);
+				if ( space != space2 || offset != offset2 ){
+					buf_page_print(read_buf,0);
+					ut_error;
+				}
+			}
+#endif
+			if ( lsn > lsn2 ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+				/* pages need to recovery */
+				ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);	
+				if ( ret != DB_SUCCESS ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
+						space,offset);
+					ut_error;
+				}
+			}
+#ifdef UNIV_DEBUG
+			else if ( lsn == lsn2 ){
+				ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0);
+			}
+#endif
+		}
+		i = i + srv_flash_cache_recovery_pages_per_read;
+	}
+
+	if ( end_offset - i != 0 ){
+		n_read = end_offset - i;
+		ret = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,i,0,n_read*UNIV_PAGE_SIZE,buf,NULL);
+		if ( ret != DB_SUCCESS ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB [Error]: Can not read flash cache, offset is %lu, read %lu pages.\n",
+				i,srv_flash_cache_recovery_pages_per_read);
+			ut_error;
+		}
+		for(j=0;j<n_read;j++){
+			page = buf + j*UNIV_PAGE_SIZE;
+			if ( buf_page_is_corrupted(page,0) ){
+				continue;
+			}
+			space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+			offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+			lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+			ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+			if ( ret != DB_SUCCESS ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+					space,offset);
+				ut_error;
+			}
+			lsn2 = mach_read_from_8(read_buf+FIL_PAGE_LSN);
+#ifdef UNIV_DEBUG
+			if ( lsn2 != 0 ){
+				space2 = mach_read_from_4(read_buf+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				offset2 = mach_read_from_4(read_buf+FIL_PAGE_OFFSET);
+				if ( space != space2 || offset != offset2 ){
+					buf_page_print(read_buf,0);
+					ut_error;
+				}
+			}
+#endif
+			if ( lsn > lsn2 ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+				/* pages need to recovery */
+				ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+				if ( ret != DB_SUCCESS ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
+						space,offset);
+					ut_error;
+				}
+			}
+#ifdef UNIV_DEBUG
+			else if ( lsn == lsn2 ){
+				ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0);
+			}
+#endif
+		}
+	}
+
+	os_aio_simulated_wake_handler_threads();
+	os_aio_wait_until_no_pending_writes();
+	fil_flush_file_spaces(FIL_TABLESPACE);
+
+	ut_free(buf_unaligned);
+}
+/****************************************************************//**
+Start flash cache log recovery.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_recovery(
+/*==========================================*/
+){
+	ulint fc_size;
+	ulint flush_offset;
+	ulint write_offset;
+
+	if ( !flash_cache_log->recovery ){
+		memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,1);
+		os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
+		os_file_flush(flash_cache_log->file);
+		return ;
+	}
+
+	flush_offset = flash_cache_log->flush_offset;
+	write_offset = flash_cache_log->write_offset;
+	fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT;
+
+	if ( mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM ) == mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM2)){
+		if ( flash_cache_log->flush_round == flash_cache_log->write_round ){
+			ut_a(flash_cache_log->write_offset > flash_cache_log->flush_offset);
+			flash_cache_log_recovery_pages(flush_offset,write_offset);
+
+		}
+		else{
+			ut_a(flash_cache_log->flush_round+1 == flash_cache_log->write_round );
+			flash_cache_log_recovery_pages(flush_offset,fc_size);
+			flash_cache_log_recovery_pages(0,write_offset);
+		}
+	}
+	else{
+		/* Do full recovery */
+		flash_cache_log_recovery_pages(0,fc_size);
+	}
+
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+
+	memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+	mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,1);
+	os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
+	os_file_flush(flash_cache_log->file);
+}
+/****************************************************************//**
+Initialize flash cache log.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_free(
+/*==========================================*/
+){
+	ut_free(flash_cache_log->buf_unaligned);
+	os_file_close(flash_cache_log->file);
+	ut_free(flash_cache_log);
+}
 
 /****************************************************************//**
 Sets the global variable log_fsp_current_free_limit. Also makes a checkpoint,

@@ -93,6 +93,11 @@ UNIV_INTERN ulint	srv_flash_cache_read = 0;
 UNIV_INTERN ulint	srv_flash_cache_write = 0;
 UNIV_INTERN ulint	srv_flash_cache_flush = 0;
 UNIV_INTERN ulint	srv_flash_cache_merge_write = 0;
+UNIV_INTERN FILE*	srv_flash_cache_log_file;
+UNIV_INTERN const char srv_flash_cache_log_file_name[16] = "flash_cache.log";
+
+UNIV_INTERN ulint	srv_flash_cache_recovery_pages_per_read = 512;
+UNIV_INTERN my_bool	srv_flash_cache_use_log = TRUE;
 
 /* The following counter is incremented whenever there is some user activity
 in the server */

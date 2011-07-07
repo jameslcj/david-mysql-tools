@@ -179,7 +179,6 @@ trx_flash_cache_init(
 /*=================*/
 ){
 	ulong i ;
-	ibool success;
 
 	trx_doublewrite->cur_off = 0;
 	trx_doublewrite->flush_off = 0;
@@ -187,7 +186,7 @@ trx_flash_cache_init(
 #ifdef UNIV_SYNC_DEBUG
 	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4,0);
 #else
-	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,4,0);
+	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,1,0);
 #endif
 	trx_doublewrite->cur_round = 0;
 	trx_doublewrite->flush_round = 0;
@@ -198,13 +197,13 @@ trx_flash_cache_init(
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc_mutex, SYNC_DOUBLEWRITE);
 	
-	success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
-	if ( !success ){
-		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
-		ut_error;
-	}
+	//success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
+	//if ( !success ){
+	//	fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
+	//	ut_error;
+	//}
 
-	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+	//fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
 
 	for(i=0;i<trx_doublewrite->fc_size;i++){
 		trx_doublewrite->block[i].fil_offset = i;
@@ -476,6 +475,194 @@ start_again:
 	}
 }
 
+UNIV_INTERN
+void
+trx_sys_doublewrite_restore_from_flash_cache(
+/*======================================*/
+	ulint start_off) /*!< in: flush offset of flash cache, 0 if we do fully safe recovery */
+{
+	byte buf_unaligned[UNIV_PAGE_SIZE*2];
+	byte* buf;
+	byte read_buf_unaligned[UNIV_PAGE_SIZE*2];
+	byte* read_buf;
+	byte* page;
+	ulint ret;
+	ulint space;
+	ulint offset;
+	ib_uint64_t	lsn;
+	ib_uint64_t	lsn2;
+	ulint j;
+	ulint n_read;
+	ulint fc_size;
+
+	ulint i = start_off;
+	ulint pages_per_read = 512;
+	
+	fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT;
+
+	buf = ut_align(buf_unaligned,UNIV_PAGE_SIZE);
+	read_buf = ut_align(read_buf_unaligned,UNIV_PAGE_SIZE);
+
+	for( ;; ){
+		if ( i +  pages_per_read < fc_size ){
+			ret = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,i,0,pages_per_read,buf,NULL);
+			if ( ret != DB_SUCCESS ){
+				fprintf(stderr,"	InnoDB [Error]: Can not read flash cache, offset is %lu, read %lu pages.\n",
+					i,pages_per_read);
+				ut_error;
+			}
+			for(j=0;j<pages_per_read;j++){
+				page = buf + j*UNIV_PAGE_SIZE;
+				space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+				lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+				ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+				if ( ret != DB_SUCCESS ){
+					fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+						space,offset);
+					ut_error;
+				}
+				lsn2 = mach_read_from_8(page+FIL_PAGE_LSN);
+				if ( lsn > lsn2 ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+					/* pages need to recovery */
+					ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,buf,NULL);
+										
+				}
+				else if ( start_off != 0 ){
+					/* if we did not do a fully reconvery, the recovery is done */
+					os_aio_simulated_wake_handler_threads();
+					os_aio_wait_until_no_pending_writes();
+					fil_flush_file_spaces(FIL_TABLESPACE);
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+					return;
+				}
+			}
+			i = i + pages_per_read;
+		}
+		else{
+			n_read = fc_size - i;
+			for(j=0;j<n_read;j++){
+				page = buf + j*UNIV_PAGE_SIZE;
+				space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+				lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+				ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+				if ( ret != DB_SUCCESS ){
+					fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+						space,offset);
+					ut_error;
+				}
+				lsn2 = mach_read_from_8(page+FIL_PAGE_LSN);
+				if ( lsn > lsn2 ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+					/* pages need to recovery */
+					ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,buf,NULL);
+										
+				}
+				else if ( start_off != 0 ){
+					/* if we did not do a fully reconvery, the recovery is done */
+					os_aio_simulated_wake_handler_threads();
+					os_aio_wait_until_no_pending_writes();
+					fil_flush_file_spaces(FIL_TABLESPACE);
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+					return;
+				}
+			}
+			break;
+		}
+	}
+
+	if ( start_off != 0 ){
+		i = 0;
+		/* recover from offset 0 */
+		for(;;){
+			if ( i +  pages_per_read < start_off ){
+				ret = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,i,0,pages_per_read,buf,NULL);
+				if ( ret != DB_SUCCESS ){
+					fprintf(stderr,"	InnoDB [Error]: Can not read flash cache, offset is %lu, read %lu pages.\n",
+						i,pages_per_read);
+					ut_error;
+				}
+				for(j=0;j<pages_per_read;j++){
+					page = buf + j*UNIV_PAGE_SIZE;
+					space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+					offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+					lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+					ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+					if ( ret != DB_SUCCESS ){
+						fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+							space,offset);
+						ut_error;
+					}
+					lsn2 = mach_read_from_8(page+FIL_PAGE_LSN);
+					if ( lsn > lsn2 ){
+						ut_print_timestamp(stderr);
+						fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+						/* pages need to recovery */
+						ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,buf,NULL);
+										
+					}
+					else if ( start_off != 0 ){
+						/* if we did not do a fully reconvery, the recovery is done */
+						os_aio_simulated_wake_handler_threads();
+						os_aio_wait_until_no_pending_writes();
+						fil_flush_file_spaces(FIL_TABLESPACE);
+						ut_print_timestamp(stderr);
+						fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+						return;
+					}
+				}
+				i = i + pages_per_read;
+			}
+			else{
+				n_read = start_off - i;
+				for(j=0;j<n_read;j++){
+					page = buf + j*UNIV_PAGE_SIZE;
+					space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+					offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+					lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+					ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+					if ( ret != DB_SUCCESS ){
+						fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+							space,offset);
+						ut_error;
+					}
+					lsn2 = mach_read_from_8(page+FIL_PAGE_LSN);
+					if ( lsn > lsn2 ){
+						ut_print_timestamp(stderr);
+						fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+						/* pages need to recovery */
+						ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,buf,NULL);
+										
+					}
+					else if ( start_off != 0 ){
+						/* if we did not do a fully reconvery, the recovery is done */
+						os_aio_simulated_wake_handler_threads();
+						os_aio_wait_until_no_pending_writes();
+						fil_flush_file_spaces(FIL_TABLESPACE);
+						ut_print_timestamp(stderr);
+						fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+						return;
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	os_aio_simulated_wake_handler_threads();
+	os_aio_wait_until_no_pending_writes();
+	fil_flush_file_spaces(FIL_TABLESPACE);
+
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
+}
+
 /****************************************************************//**
 At a database startup initializes the doublewrite buffer memory structure if
 we already have a doublewrite buffer created in the data files. If we are
@@ -500,6 +687,12 @@ trx_sys_doublewrite_init_or_restore_pages(
 	ulint	space_id;
 	ulint	page_no;
 	ulint	i;
+
+	if ( srv_flash_cache_size > 0 ){
+		flash_cache_log_init();
+		flash_cache_log_recovery();
+		return;
+	}
 
 	/* We do the file i/o past the buffer pool */
 
