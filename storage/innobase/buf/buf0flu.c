@@ -77,6 +77,8 @@ static buf_flush_stat_t	buf_flush_stat_sum;
 /** Number of pages flushed through non flush_list flushes. */
 static ulint buf_lru_flush_page_count = 0;
 
+static char str_flash_cache_log[16];
+
 /* @} */
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
@@ -733,7 +735,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 			
 		b = &trx_doublewrite->block[off];
 
-		flash_cache_hash_mutex_enter(block->page.space,block->page.offset);
+		flash_cache_hash_mutex_enter(b->space,b->offset);
 
 		if ( stage == 1 ){
 			if ( b->used ){
@@ -790,7 +792,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 #endif
 			buf_page_io_complete(&block->page);	
 		}
-		flash_cache_hash_mutex_exit(block->page.space,block->page.offset);
+		flash_cache_hash_mutex_exit(b->space,b->offset);
 	}
 }
 /********************************************************************//**
@@ -1040,6 +1042,7 @@ retry1:
 			trx_doublewrite->cur_off = trx_doublewrite->cur_off + trx_doublewrite->first_free;
 		}
 		fil_flush(FLASH_CACHE_SPACE);
+		flash_cache_log_commit();
 		flash_cache_mutex_exit();
 	}
 	else{
@@ -2419,6 +2422,48 @@ buf_flush_flash_cache_validate(){
 }
 
 /******************************************************************//**
+Get flush flash cache flush offset to log
+@return FALSE if there is no need to recover from flash cache pages
+*/
+UNIV_INTERN
+ibool
+buf_flush_flash_cache_get_offset(
+/*===================*/
+ulint* flush_offset, /*!< in&out: flush offset of flash cache */
+ulint* write_offset /*!< in&out: write offset of flash cache */
+){
+//	char ret[32];
+//	char* p;
+//	ut_a(os_file_read(srv_flash_cache_log_file,ret,0,0,32));
+//	if ( ret[0] == '0' ){
+//		ut_print_timestamp(stderr);
+//		fprintf(stderr,"	InnoDB: No need to recovery from flash cache.\n");
+//		return FALSE;
+//	}
+//	p = strtok(ret+2," ");
+//	*flush_offset = atol(p);
+//	p = strtok(NULL," ");
+//	*write_offset = atol(p);
+//#ifdef UNIV_DEBUG
+//	ut_print_timestamp(stderr);
+//	fprintf(stderr,"	InnoDB: flush offset is %lu. write offset is %lu.\n",*flush_offset,*write_offset);
+//#endif
+	return TRUE;
+}
+
+/******************************************************************//**
+Flush flash cache flush offset to log
+*/
+UNIV_INTERN
+void
+buf_flush_flash_cache_offset(
+/*===================*/
+){
+	//sprintf(str_flash_cache_log,"1 %lu %lu\0",trx_doublewrite->flush_off,trx_doublewrite->cur_off);
+	//ut_ad(os_file_write(srv_flash_cache_log_file_name,srv_flash_cache_log_file,str_flash_cache_log,strlen(str_flash_cache_log),0,strlen(str_flash_cache_log)));
+}
+
+/******************************************************************//**
 Flush pages from flash cache.
 @return	number of pages to be flush to tablespace */
 UNIV_INTERN
@@ -2438,7 +2483,8 @@ ibool is_shutdown
 	ulint lsn;
 	ulint lsn2;
 	byte page2[UNIV_PAGE_SIZE];
-
+	ulint space2;
+	ulint offset2;
 #endif
 	
 	flash_cache_mutex_enter();
@@ -2513,16 +2559,6 @@ ibool is_shutdown
 		ut_error;
 	}
 
-	flash_cache_mutex_enter();
-	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
-		trx_doublewrite->flush_off = 0;
-		trx_doublewrite->flush_round++;
-	}
-	else{
-		trx_doublewrite->flush_off += n_flush;
-	}
-	flash_cache_mutex_exit();
-
 	for(i = 0; i < n_flush; i++){
 
 		page = trx_doublewrite->read_buf + i*UNIV_PAGE_SIZE;
@@ -2532,6 +2568,8 @@ ibool is_shutdown
 		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
 		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
 		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
+		space2 = mach_read_from_4(page2+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+		offset2 = mach_read_from_4(page2+FIL_PAGE_OFFSET);
 		if ( lsn < lsn2 ){
 			fprintf(stderr,"InnoDB: Flash Cache[Error]: "
 				"try to flush page lsn: %lu."
@@ -2542,6 +2580,10 @@ ibool is_shutdown
 		}
 		ut_ad( space == trx_doublewrite->block[start_offset+i].space );
 		ut_ad( offset == trx_doublewrite->block[start_offset+i].offset );
+		if ( lsn2 != 0 ){
+			ut_ad( space == space2 );
+			ut_ad( offset == offset2 );
+		}
 #endif
 		if ( trx_doublewrite->block[start_offset+i].used ){
 			fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
@@ -2566,6 +2608,18 @@ ibool is_shutdown
 	}
 
 	buf_flush_sync_datafiles();
+
+	flash_cache_mutex_enter();
+	if ( trx_doublewrite->flush_off + n_flush == trx_doublewrite->fc_size ){
+		trx_doublewrite->flush_off = 0;
+		trx_doublewrite->flush_round++;
+	}
+	else{
+		trx_doublewrite->flush_off += n_flush;
+	}
+	flash_cache_log_commit();
+	flash_cache_mutex_exit();
+
 
 
 

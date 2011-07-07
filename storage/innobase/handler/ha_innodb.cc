@@ -11317,8 +11317,13 @@ static MYSQL_SYSVAR_ULONG(flash_cache_size, srv_flash_cache_size,
   "Flash cache file size",
   NULL, NULL, 0, 0, ULONG_MAX, 0);
 
+static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
+  PLUGIN_VAR_READONLY,
+  "Enable flash cache log",
+  NULL, NULL, TRUE);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(flash_cache_enable_log),
   MYSQL_SYSVAR(flash_cache_file),
   MYSQL_SYSVAR(flash_cache_size),
   MYSQL_SYSVAR(additional_mem_pool_size),

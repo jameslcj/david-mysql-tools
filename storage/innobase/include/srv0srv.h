@@ -55,6 +55,14 @@ extern ulint	srv_flash_cache_read;
 extern ulint	srv_flash_cache_write;
 extern ulint	srv_flash_cache_flush;
 extern ulint	srv_flash_cache_merge_write;
+extern ulint	srv_flash_cache_recovery_pages_per_read;
+extern my_bool	srv_flash_cache_use_log;
+
+extern FILE*	srv_flash_cache_log_file;
+
+//extern os_file_t	srv_flash_cache_log_file;
+
+extern const char srv_flash_cache_log_file_name[16];
 
 extern const char*	srv_main_thread_op_info;
 

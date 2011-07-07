@@ -1315,6 +1315,8 @@ innobase_start_or_create_for_mysql(void)
 		return(DB_ERROR);
 	}
 
+
+
 	/* If user has set the value of innodb_file_io_threads then
 	we'll emit a message telling the user that this parameter
 	is now deprecated. */
@@ -2254,6 +2256,10 @@ innobase_shutdown_for_mysql(void)
 			"  InnoDB: Shutdown completed;"
 			" log sequence number %llu\n",
 			srv_shutdown_lsn);
+	}
+
+	if ( srv_flash_cache_size > 0 ){
+		flash_cache_log_free();
 	}
 
 	srv_was_started = FALSE;
