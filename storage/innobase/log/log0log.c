@@ -242,17 +242,22 @@ flash_cache_log_init(
 		os_file_read(flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
 
 		flash_cache_log->recovery = mach_read_from_1(flash_cache_log->buf + FLASH_CACHE_LOG_NEED_RECOVERY) == 0 ? FALSE : TRUE;
+		flash_cache_log->is_used = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_USED );
 
 		if ( flash_cache_log->recovery ){
 			flash_cache_log->flush_offset = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_FLUSH_OFFSET );
 			flash_cache_log->flush_round = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_FLUSH_ROUND );
 			flash_cache_log->write_offset = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_WRITE_OFFSET );
 			flash_cache_log->write_round = mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_WRITE_ROUND );
-
+			
 			if ( flash_cache_log->flush_offset == flash_cache_log->write_offset
 				&& flash_cache_log->flush_round == flash_cache_log->write_round ){
 					flash_cache_log->recovery = FALSE;
 			}
+		}
+
+		if ( !flash_cache_log->is_used ){
+			flash_cache_log->recovery = 1;
 		}
 	}
 	ret = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
@@ -435,16 +440,22 @@ flash_cache_log_recovery(
 	write_offset = flash_cache_log->write_offset;
 	fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT;
 
-	if ( mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM ) == mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM2)){
-		if ( flash_cache_log->flush_round == flash_cache_log->write_round ){
-			ut_a(flash_cache_log->write_offset > flash_cache_log->flush_offset);
-			flash_cache_log_recovery_pages(flush_offset,write_offset);
+	if ( flash_cache_log->is_used ){
+		if ( mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM ) == mach_read_from_4(flash_cache_log->buf + FLASH_CACHE_LOG_CHKSUM2)){
+			if ( flash_cache_log->flush_round == flash_cache_log->write_round ){
+				ut_a(flash_cache_log->write_offset > flash_cache_log->flush_offset);
+				flash_cache_log_recovery_pages(flush_offset,write_offset);
 
+			}
+			else{
+				ut_a(flash_cache_log->flush_round+1 == flash_cache_log->write_round );
+				flash_cache_log_recovery_pages(flush_offset,fc_size);
+				flash_cache_log_recovery_pages(0,write_offset);
+			}
 		}
 		else{
-			ut_a(flash_cache_log->flush_round+1 == flash_cache_log->write_round );
-			flash_cache_log_recovery_pages(flush_offset,fc_size);
-			flash_cache_log_recovery_pages(0,write_offset);
+			/* Do full recovery when corrupt*/
+			flash_cache_log_recovery_pages(0,fc_size);
 		}
 	}
 	else{
@@ -456,12 +467,19 @@ flash_cache_log_recovery(
 	fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
 
 	memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+
+	if ( srv_flash_cache_use_log ){
+		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_USED,1);
+	}
+	else{
+		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_USED,0);
+	}
 	mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,1);
 	os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
 	os_file_flush(flash_cache_log->file);
 }
 /****************************************************************//**
-Initialize flash cache log.																  
+Free flash cache log.																  
 */
 UNIV_INTERN
 void
