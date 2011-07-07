@@ -688,12 +688,10 @@ trx_sys_doublewrite_init_or_restore_pages(
 	ulint	page_no;
 	ulint	i;
 
-	if ( srv_flash_cache_size > 0 ){
-		flash_cache_log_init();
-		flash_cache_log_recovery();
-		return;
-	}
-
+	//if ( srv_flash_cache_size > 0 ){
+	//	flash_cache_log_init();
+	//	flash_cache_log_recovery();
+	//}
 	/* We do the file i/o past the buffer pool */
 
 	unaligned_read_buf = ut_malloc(2 * UNIV_PAGE_SIZE);

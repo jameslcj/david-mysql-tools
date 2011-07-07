@@ -4339,10 +4339,10 @@ fil_io(
 #ifndef UNIV_HOTBACKUP
 # ifndef UNIV_LOG_DEBUG
 	if ( srv_flash_cache_size == 0 ){
-	/* ibuf bitmap pages must be read in the sync aio mode: */
-	ut_ad(recv_no_ibuf_operations || (type == OS_FILE_WRITE)
-	      || !ibuf_bitmap_page(zip_size, block_offset)
-	      || sync || is_log);
+		/* ibuf bitmap pages must be read in the sync aio mode: */
+		ut_ad(recv_no_ibuf_operations || (type == OS_FILE_WRITE)
+			  || !ibuf_bitmap_page(zip_size, block_offset)
+			  || sync || is_log);
 	}
 # endif /* UNIV_LOG_DEBUG */
 	if (sync) {

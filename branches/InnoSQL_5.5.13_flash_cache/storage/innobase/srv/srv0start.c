@@ -1687,6 +1687,13 @@ innobase_start_or_create_for_mysql(void)
 		and there must be no page in the buf_flush list. */
 		buf_pool_invalidate();
 
+
+		if ( srv_flash_cache_size > 0 ){
+			fil_load_single_table_tablespaces();
+			flash_cache_log_init();
+			flash_cache_log_recovery();
+		}
+
 		/* We always try to do a recovery, even if the database had
 		been shut down normally: this is the normal startup path */
 
@@ -1706,6 +1713,7 @@ innobase_start_or_create_for_mysql(void)
 		works for space 0. */
 
 		dict_boot();
+
 		trx_sys_init_at_db_start();
 
 		/* Initialize the fsp free limit global variable in the log

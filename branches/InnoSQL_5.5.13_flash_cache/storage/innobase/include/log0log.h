@@ -64,7 +64,14 @@ void
 flash_cache_log_commit(
 /*==========================================*/
 );
-
+/****************************************************************//**
+Free flash cache log.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_free(
+/*==========================================*/
+);
 /** Flash cache log */
 typedef struct flash_cache_log_struct flash_cache_log_t;
 
@@ -1009,6 +1016,7 @@ struct flash_cache_log_struct{
 	ulint		write_offset;
 	ulint		write_round;
 	ibool		recovery;
+	ibool		is_used;
 };
 
 /** Test if flush order mutex is owned. */
