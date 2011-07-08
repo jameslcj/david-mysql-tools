@@ -1007,7 +1007,7 @@ struct flash_cache_log_struct{
 #ifdef __WIN__
 	HANDLE	file;
 #else
-	int			file
+	int			file;
 #endif
 	byte*		buf;
 	byte*		buf_unaligned;
