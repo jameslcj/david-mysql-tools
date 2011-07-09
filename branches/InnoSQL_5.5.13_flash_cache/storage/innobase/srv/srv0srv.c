@@ -3260,23 +3260,25 @@ srv_flash_cache_thread(
 
 		if ( n_flush == 0 ){
 			os_thread_sleep(1000000);
+			count++;
 		}
 		else if ( n_flush >= PCT_IO(75) ){
 			os_thread_sleep(500);
+			count = 0;
 		}
 		else{
 			os_thread_sleep(ut_min(1000000,(1000-cur_time)*1000));
+			count = 0;
 		}
 
-		if ( write_off == trx_doublewrite->cur_off){
-			count = count + 1;
+		if ( count == 30 ){
 			/* if there is no activity in 30 second, we flush as many page as we can */
-			while ( count == 30 && write_off == trx_doublewrite->cur_off ){
+			while ( write_off == trx_doublewrite->cur_off ){
 				if ( buf_flush_flash_cache_page(TRUE) == 0 )
 					break;
 			}
-			if ( count == 30 )
-				count = 0;
+			count = 0;
+			os_thread_sleep(1000000);
 		}
 
 	}
