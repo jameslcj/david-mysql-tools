@@ -709,6 +709,10 @@ srv_is_any_background_thread_active(void);
 
 /** Status variables to be passed to MySQL */
 struct export_var_struct{
+	ulint innodb_flash_cache_pages_read;
+	ulint innodb_flash_cache_pages_write;
+	ulint innodb_flash_cache_pages_flush;
+	ulint innodb_flash_cache_pages_merge_write;
 	ulint innodb_data_pending_reads;	/*!< Pending reads */
 	ulint innodb_data_pending_writes;	/*!< Pending writes */
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */

@@ -2422,48 +2422,6 @@ buf_flush_flash_cache_validate(){
 }
 
 /******************************************************************//**
-Get flush flash cache flush offset to log
-@return FALSE if there is no need to recover from flash cache pages
-*/
-UNIV_INTERN
-ibool
-buf_flush_flash_cache_get_offset(
-/*===================*/
-ulint* flush_offset, /*!< in&out: flush offset of flash cache */
-ulint* write_offset /*!< in&out: write offset of flash cache */
-){
-//	char ret[32];
-//	char* p;
-//	ut_a(os_file_read(srv_flash_cache_log_file,ret,0,0,32));
-//	if ( ret[0] == '0' ){
-//		ut_print_timestamp(stderr);
-//		fprintf(stderr,"	InnoDB: No need to recovery from flash cache.\n");
-//		return FALSE;
-//	}
-//	p = strtok(ret+2," ");
-//	*flush_offset = atol(p);
-//	p = strtok(NULL," ");
-//	*write_offset = atol(p);
-//#ifdef UNIV_DEBUG
-//	ut_print_timestamp(stderr);
-//	fprintf(stderr,"	InnoDB: flush offset is %lu. write offset is %lu.\n",*flush_offset,*write_offset);
-//#endif
-	return TRUE;
-}
-
-/******************************************************************//**
-Flush flash cache flush offset to log
-*/
-UNIV_INTERN
-void
-buf_flush_flash_cache_offset(
-/*===================*/
-){
-	//sprintf(str_flash_cache_log,"1 %lu %lu\0",trx_doublewrite->flush_off,trx_doublewrite->cur_off);
-	//ut_ad(os_file_write(srv_flash_cache_log_file_name,srv_flash_cache_log_file,str_flash_cache_log,strlen(str_flash_cache_log),0,strlen(str_flash_cache_log)));
-}
-
-/******************************************************************//**
 Flush pages from flash cache.
 @return	number of pages to be flush to tablespace */
 UNIV_INTERN
