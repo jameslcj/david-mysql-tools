@@ -597,6 +597,14 @@ innobase_commit_low(
 	trx_t*	trx);	/*!< in: transaction handle */
 
 static SHOW_VAR innodb_status_variables[]= {
+  {"flash_cache_read",
+  (char*) &export_vars.innodb_flash_cache_pages_read,	  SHOW_LONG},
+  {"flash_cache_write",
+  (char*) &export_vars.innodb_flash_cache_pages_write,	  SHOW_LONG},
+  {"flash_cache_flush",
+  (char*) &export_vars.innodb_flash_cache_pages_flush,	  SHOW_LONG},
+  {"flash_cache_merge_flush",
+  (char*) &export_vars.innodb_flash_cache_pages_merge_write,	  SHOW_LONG},
   {"buffer_pool_pages_data",
   (char*) &export_vars.innodb_buffer_pool_pages_data,	  SHOW_LONG},
   {"buffer_pool_pages_dirty",

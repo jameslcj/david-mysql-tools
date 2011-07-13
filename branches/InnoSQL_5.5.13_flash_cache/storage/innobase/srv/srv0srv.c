@@ -2028,6 +2028,13 @@ srv_export_innodb_status(void)
 
 	mutex_enter(&srv_innodb_monitor_mutex);
 
+	if ( srv_flash_cache_size > 0 ){
+		export_vars.innodb_flash_cache_pages_flush = srv_flash_cache_flush;
+		export_vars.innodb_flash_cache_pages_read = srv_flash_cache_read;
+		export_vars.innodb_flash_cache_pages_write = srv_flash_cache_write;
+		export_vars.innodb_flash_cache_pages_merge_write = srv_flash_cache_merge_write;
+	}
+
 	export_vars.innodb_data_pending_reads
 		= os_n_pending_reads;
 	export_vars.innodb_data_pending_writes
@@ -3275,14 +3282,14 @@ srv_flash_cache_thread(
 		}
 
 		if ( count == 10 ){
-			/* if there is no activity in 30 second, we flush as many page as we can */
+			/* if there is no activity in 10 second, we flush as many page as we can */
 			while ( write_off == trx_doublewrite->cur_off ){
 				if ( buf_flush_flash_cache_page(TRUE) == 0 )
 					break;
 			}
-			count = 0;
 		}
 
+		count = 0;
 	}
 
 	while ( 1 ){

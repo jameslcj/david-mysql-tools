@@ -291,6 +291,7 @@ ulint end_offset
 	ulint lsn;
 	ulint lsn2;
 	ulint n_read;
+	ulint n_pages_recovery = 0;
 #ifdef UNIV_DEBUG
 	ulint space2;
 	ulint offset2;
@@ -334,24 +335,33 @@ ulint end_offset
 				}
 			}
 #endif
-			if ( lsn > lsn2 ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+			/* pages need to recovery */
+			ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);	
+			if ( ret != DB_SUCCESS ){
 				ut_print_timestamp(stderr);
-				fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
-				/* pages need to recovery */
-				ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);	
-				if ( ret != DB_SUCCESS ){
-					ut_print_timestamp(stderr);
-					fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
-						space,offset);
-					ut_error;
-				}
+				fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
+					space,offset);
+				ut_error;
 			}
+			n_pages_recovery++;
 #ifdef UNIV_DEBUG
+			if ( lsn > lsn2 ){
+
+			}
 			else if ( lsn == lsn2 ){
 				ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0);
 			}
+			else {
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB [Warning]: recover page %lu,offset %lu. lsn %lu lower than lsn %lu in disk page.\n",space,offset,lsn,lsn2);
+			}
 #endif
 		}
+		os_aio_simulated_wake_handler_threads();
+		os_aio_wait_until_no_pending_writes();
+		fil_flush_file_spaces(FIL_TABLESPACE);
 		i = i + srv_flash_cache_recovery_pages_per_read;
 	}
 
@@ -390,21 +400,27 @@ ulint end_offset
 				}
 			}
 #endif
-			if ( lsn > lsn2 ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
+			/* pages need to recovery */
+			ret = fil_io(OS_FILE_WRITE /*| OS_AIO_SIMULATED_WAKE_LATER*/,TRUE/*FALSE*/,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+			if ( ret != DB_SUCCESS ){
 				ut_print_timestamp(stderr);
-				fprintf(stderr,"	InnoDB: Using flash cache to recover page, space %lu, offset %lu.\n",space,offset);
-				/* pages need to recovery */
-				ret = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
-				if ( ret != DB_SUCCESS ){
-					ut_print_timestamp(stderr);
-					fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
-						space,offset);
-					ut_error;
-				}
+				fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
+					space,offset);
+				ut_error;
 			}
+			n_pages_recovery++;
 #ifdef UNIV_DEBUG
+			if ( lsn > lsn2 ){
+
+			}
 			else if ( lsn == lsn2 ){
 				ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0);
+			}
+			else {
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB [Warning]: recover page %lu,offset %lu. lsn %lu lower than lsn %lu in disk page.\n",space,offset,lsn,lsn2);
 			}
 #endif
 		}
@@ -415,6 +431,10 @@ ulint end_offset
 	fil_flush_file_spaces(FIL_TABLESPACE);
 
 	ut_free(buf_unaligned);
+
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"	InnoDB: Should recovery pages %lu, recvery %lu\n",end_offset-start_offset,n_pages_recovery);
+
 }
 /****************************************************************//**
 Start flash cache log recovery.																  
