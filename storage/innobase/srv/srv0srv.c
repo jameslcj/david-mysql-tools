@@ -3244,7 +3244,7 @@ srv_flash_cache_thread(
 {
 	srv_slot_t*	slot;
 	ulint n_flush;	
-	register ulint cur_time;
+	ulint cur_time;
 	ulint count = 0;
 	ulint write_off;
 	ulint i;
@@ -3260,7 +3260,7 @@ srv_flash_cache_thread(
 
 		write_off = trx_doublewrite->cur_off;
 
-		for ( i = 0; i < 10; i++ ){
+		for ( i = 0; i < 30; i++ ){
 			cur_time = ut_time_ms();
 
 			n_flush = buf_flush_flash_cache_page(FALSE);
@@ -3281,8 +3281,8 @@ srv_flash_cache_thread(
 			}
 		}
 
-		if ( count == 10 ){
-			/* if there is no activity in 10 second, we flush as many page as we can */
+		if ( count == 30 ){
+			/* if there is no activity in 30 second, we flush as many page as we can */
 			while ( write_off == trx_doublewrite->cur_off ){
 				if ( buf_flush_flash_cache_page(TRUE) == 0 )
 					break;
