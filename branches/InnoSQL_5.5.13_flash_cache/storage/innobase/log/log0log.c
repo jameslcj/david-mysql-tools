@@ -266,6 +266,141 @@ flash_cache_log_init(
 		ut_error;
 	}
 	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+
+	if ( flash_cache_log->recovery ){
+		trx_doublewrite->cur_round = flash_cache_log->write_round;
+		trx_doublewrite->cur_off = flash_cache_log->write_offset;
+		trx_doublewrite->flush_off = flash_cache_log->flush_offset;
+		trx_doublewrite->flush_round = flash_cache_log->flush_round;
+	}
+}
+
+UNIV_INTERN
+void
+flash_cache_log_recovery_pages_to_hash_table(
+/*==========================================*/
+ulint f_offset,
+ulint n_read,
+byte* buf,
+byte* read_buf,
+ulint* n_pages_recovery
+){
+	ulint ret;
+	ulint j;
+	byte* page;
+	ulint space;
+	ulint offset;
+	ib_uint64_t lsn;
+	ib_uint64_t lsn2;
+	ulint space2;
+	ulint offset2;
+	trx_flashcache_block_t* b;
+
+	/* read n_read pages */
+	ret = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,f_offset,0,n_read*UNIV_PAGE_SIZE,buf,NULL);
+	if ( ret != DB_SUCCESS ){
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"	InnoDB [Error]: Can not read flash cache, offset is %lu, read %lu pages.\n",
+			f_offset,srv_flash_cache_recovery_pages_per_read);
+		ut_error;
+	}
+
+	for( j=0; j<n_read; j++){
+
+		page = buf + j*UNIV_PAGE_SIZE;
+		
+		if ( buf_page_is_corrupted(page,0) ){
+			/* if page is corrupt */
+			fprintf(stderr,
+				"InnoDB: [Error]: database page"
+					" corruption.\n");
+			fprintf(stderr,
+				"InnoDB: Dump of"
+				" corresponding page\n");
+			buf_page_print(page, 0);
+			ut_error;
+		}
+
+		/* read space, offset, lsn from flash cache page header */
+		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+		lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
+
+		/* read space, offset lsn from disk page header */
+		ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+		if ( ret != DB_SUCCESS ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB [Error]: Can not read tablespace %lu, offset is %lu.\n",
+				space,offset);
+			ut_error;
+		}
+		lsn2 = mach_read_from_8(read_buf+FIL_PAGE_LSN);
+		space2 = mach_read_from_4(read_buf+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+		offset2 = mach_read_from_4(read_buf+FIL_PAGE_OFFSET);
+
+		/* compare page */
+		if ( lsn2 != 0 ){
+			ut_a(space == space2 && offset == offset2);
+		}
+		ut_a(lsn >= lsn2);
+
+#ifdef UNIV_DEBUG
+		if ( lsn == lsn2 ){
+			ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0 );
+		}
+#endif
+
+		if ( lsn > lsn2 ){
+			/* if lsn greater than lsn2,
+				we should add this page to flash cache hash table*/
+
+			/* search the same space offset in hash table */
+			flash_cache_hash_mutex_enter(space,offset);		
+			HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(space,offset),
+				trx_flashcache_block_t*,b,
+				ut_ad(1),
+				space == b->space && offset == b->offset);
+
+			if ( b ){
+				/* if found in hash table, remove it first */
+#ifdef UNIV_DEBUG
+				ulint ret3;
+				ulint space3;
+				ulint offset3;
+				ib_uint64_t lsn3;
+				/* lsn in hash table should smaller than this */
+				ret3 = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
+				lsn3 = mach_read_from_8(read_buf+FIL_PAGE_LSN);
+				space3 = mach_read_from_4(read_buf+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				offset3 = mach_read_from_4(read_buf+FIL_PAGE_OFFSET);
+				ut_ad(lsn3<lsn);
+				if ( lsn3 != 0 ){
+					ut_ad(space3 == b->space && offset3 == b->offset);
+				}
+#endif
+				//flash_cache_hash_mutex_enter(space,offset);
+				b->used = 0;
+				/* delete info in hash table */
+				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+					buf_page_address_fold(b->space, b->offset),
+					b);
+			}
+			//flash_cache_hash_mutex_exit(space,offset);
+
+			/* insert to hash table */
+			b =  &trx_doublewrite->block[f_offset+j];
+			//flash_cache_hash_mutex_enter(space,offset);
+			b->space = space;
+			b->offset = offset;
+			b->used = 1;
+			HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+				buf_page_address_fold(b->space, b->offset),
+				b);
+			flash_cache_hash_mutex_exit(space,offset);
+		}
+		*n_pages_recovery = *n_pages_recovery + 1;
+	}
 }
 
 /****************************************************************//**
@@ -274,6 +409,46 @@ Start flash cache log recovery.
 UNIV_INTERN
 void
 flash_cache_log_recovery_pages(
+/*==========================================*/
+ulint start_offset,
+ulint end_offset
+){
+	ulint i;
+	byte* buf_unaligned;
+	byte* buf;
+	byte read_buf_unaligned[UNIV_PAGE_SIZE*2];
+	byte* read_buf;
+
+	ulint n_read;
+	ulint n_pages_recovery = 0;
+
+	i = start_offset;
+	buf_unaligned = (byte*)ut_malloc(UNIV_PAGE_SIZE*(srv_flash_cache_recovery_pages_per_read+1));
+	buf = (byte*)ut_align(buf_unaligned,UNIV_PAGE_SIZE);
+	read_buf = (byte*)ut_align(read_buf_unaligned,UNIV_PAGE_SIZE);
+
+	while( i + srv_flash_cache_recovery_pages_per_read < end_offset ){
+		flash_cache_log_recovery_pages_to_hash_table(i,srv_flash_cache_recovery_pages_per_read,buf,read_buf,&n_pages_recovery);
+		i = i + srv_flash_cache_recovery_pages_per_read;
+	}
+
+	if ( end_offset - i != 0 ){
+		n_read = end_offset - i;
+		flash_cache_log_recovery_pages_to_hash_table(i,n_read,buf,read_buf,&n_pages_recovery);
+	}
+
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"	InnoDB: Should recovery pages %lu, recvery %lu\n",end_offset-start_offset,n_pages_recovery);
+
+	ut_free(buf_unaligned);
+}
+
+/****************************************************************//**
+Start flash cache log recovery.																  
+*/
+UNIV_INTERN
+void
+flash_cache_log_full_recovery_pages(
 /*==========================================*/
 ulint start_offset,
 ulint end_offset
@@ -486,7 +661,7 @@ flash_cache_log_recovery(
 	ut_print_timestamp(stderr);
 	fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
 
-	memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+	//memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
 
 	if ( srv_flash_cache_use_log ){
 		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_USED,1);
