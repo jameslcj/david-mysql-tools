@@ -875,6 +875,12 @@ trx_sys_doublewrite_init_or_restore_pages(
 
 	fil_flush_file_spaces(FIL_TABLESPACE);
 
+	if ( srv_flash_cache_size > 0 ){
+		fil_load_single_table_tablespaces();
+		flash_cache_log_init();
+		flash_cache_log_recovery();
+	}
+
 leave_func:
 	ut_free(unaligned_read_buf);
 }
