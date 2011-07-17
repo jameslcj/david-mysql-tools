@@ -50,6 +50,7 @@ Created 10/10/1995 Heikki Tuuri
 
 extern ulong	srv_flash_cache_size;
 extern char*	srv_flash_cache_file;
+extern char*	srv_flash_cache_warmup_table;
 /** Flash cache status variables */
 extern ulint	srv_flash_cache_read;
 extern ulint	srv_flash_cache_write;

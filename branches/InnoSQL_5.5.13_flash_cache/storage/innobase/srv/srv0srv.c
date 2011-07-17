@@ -89,6 +89,7 @@ Created 10/8/1995 Heikki Tuuri
 
 UNIV_INTERN ulong	srv_flash_cache_size = 0;
 UNIV_INTERN char*	srv_flash_cache_file = NULL;
+UNIV_INTERN char*	srv_flash_cache_warmup_table = "tpcc.*";
 UNIV_INTERN ulint	srv_flash_cache_read = 0;
 UNIV_INTERN ulint	srv_flash_cache_write = 0;
 UNIV_INTERN ulint	srv_flash_cache_flush = 0;
@@ -3270,6 +3271,9 @@ srv_flash_cache_thread(
 			if ( n_flush == 0 ){
 				os_thread_sleep(1000000);
 				count++;
+			}
+			else if ( n_flush ==  PCT_IO(100) ){
+				count = 0;
 			}
 			else if ( n_flush >= PCT_IO(75) ){
 				os_thread_sleep(500);

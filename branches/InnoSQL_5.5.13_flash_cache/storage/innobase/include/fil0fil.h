@@ -158,6 +158,11 @@ extern ulint	fil_n_pending_log_flushes;
 extern ulint	fil_n_pending_tablespace_flushes;
 
 
+/********************************************************************//**
+Warm up flash cache*/
+UNIV_INTERN
+void
+fil_flash_cache_warmup(void);
 #ifndef UNIV_HOTBACKUP
 /*******************************************************************//**
 Returns the version number of a tablespace, -1 if not found.
