@@ -1830,6 +1830,10 @@ innobase_start_or_create_for_mysql(void)
 		return((int)DB_ERROR);
 	}
 
+	if ( srv_flash_cache_size > 0 ){
+		fil_flash_cache_warmup();
+	}
+
 	/* Create the master thread which does purge and other utility
 	operations */
 

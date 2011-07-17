@@ -438,7 +438,7 @@ ulint end_offset
 	}
 
 	ut_print_timestamp(stderr);
-	fprintf(stderr,"	InnoDB: Should recovery pages %lu, recvery %lu\n",end_offset-start_offset,n_pages_recovery);
+	fprintf(stderr,"	InnoDB: Should recover pages %lu, recover %lu\n",end_offset-start_offset,n_pages_recovery);
 
 	ut_free(buf_unaligned);
 }

@@ -45,6 +45,8 @@ Created 10/25/1995 Heikki Tuuri
 # include "ibuf0ibuf.h"
 # include "sync0sync.h"
 # include "os0sync.h"
+# include "trx0sys.h"
+# include "log0log.h"
 #else /* !UNIV_HOTBACKUP */
 static ulint srv_data_read, srv_data_written;
 #endif /* !UNIV_HOTBACKUP */
@@ -4892,4 +4894,299 @@ fil_close(void)
 	mem_free(fil_system);
 
 	fil_system = NULL;
+}
+
+/********************************************************************//**
+Warm up tablespace to flash cache*/
+UNIV_INTERN
+ibool
+flash_cache_warmup_tablespace(
+/*=============================*/
+	os_file_t	file,		/*!< in: file of tablespace */
+	const char* dbname,		/*!< in: database name */
+	const char*	tablename,	/*!< in: tablespace to load tpcc.*:test.mysql */
+	ulint space_id)			/*!< in: tablespace space id */
+{
+
+		byte*	buf_unaligned;
+		byte*	buf;
+		byte*	page;
+		ibool	success = FALSE;
+		char*	token;
+		char	name[128];
+		char	name2[128];
+		char	str[128];
+		ulint	n_pages;
+		ulint	write_off;
+		ulint	i = 0;
+		ulint	size;
+		ulint	size_high;
+		ulint	foffset;
+		ulint	foffset_high;
+		ulint	j;
+		trx_flashcache_block_t* b;
+		ulint	offset;
+
+		sprintf(name,"%s.%s",dbname,tablename);
+		sprintf(name2,"%s.*",dbname);
+		ut_strcpy(str,srv_flash_cache_warmup_table);
+		token = strtok(str,":");
+		while( token != NULL && !success ){
+			if ( ut_strcmp(token,name) == 0 || ut_strcmp(token,name2) == 0 )
+				success = TRUE;
+			token = strtok(NULL,":");
+		}
+
+		if ( !success ){
+			return FALSE;
+		}
+
+		if ( trx_doublewrite->cur_round == trx_doublewrite->flush_round ){
+			n_pages = trx_doublewrite->fc_size - ( trx_doublewrite->cur_off - trx_doublewrite->flush_off ) ;
+		}
+		else{
+			ut_a(trx_doublewrite->cur_round = trx_doublewrite->flush_round+1);
+			n_pages = trx_doublewrite->flush_off - trx_doublewrite->cur_off;
+		}
+
+		/* start write offset */
+		write_off = trx_doublewrite->cur_off;
+		/* get file size */
+		os_file_get_size(file,&size,&size_high);
+		/* malloc memory for page to read */
+		buf_unaligned = (byte*)ut_malloc((srv_flash_cache_recovery_pages_per_read+1)*UNIV_PAGE_SIZE);
+		buf = (byte*)ut_align(buf_unaligned,UNIV_PAGE_SIZE);
+
+		ut_print_timestamp(stderr);
+		fprintf(stderr,"	InnoDB: start to warm up tablespace %s.%s to flash cache.\n",dbname,tablename);
+
+		while( i + srv_flash_cache_recovery_pages_per_read < n_pages ){
+			foffset = ((ulint)(i*UNIV_PAGE_SIZE)) & 0xFFFFFFFFUL;
+			foffset_high = (ib_uint64_t)(i*UNIV_PAGE_SIZE) >> 32;
+			success = os_file_read_no_error_handling(file, buf, foffset, foffset_high, UNIV_PAGE_SIZE*srv_flash_cache_recovery_pages_per_read);
+			if ( !success ){
+				ut_free(buf_unaligned);
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"  InnoDB: preloading table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"  InnoDB: secondary buffer pool is full, preloading stop.\n");
+				return (FALSE);
+			}
+			for( j=0; j<srv_flash_cache_recovery_pages_per_read; j++ ){
+				page = buf + j*UNIV_PAGE_SIZE;
+				if ( fil_page_get_type(page) != FIL_PAGE_INDEX 
+							&& fil_page_get_type(page) != FIL_PAGE_INODE 
+							){
+					continue;
+				}
+				offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+				ut_ad( mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) == space_id );
+				flash_cache_hash_mutex_enter(space_id,offset);		
+				HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+					buf_page_address_fold(space_id,offset),
+					trx_flashcache_block_t*,b,
+					ut_ad(1),
+					space_id == b->space && offset == b->offset);
+				if ( b ){
+#ifdef UNIV_DEBUG
+					/* if found in hash table, remove it first */
+					ulint		ret3;
+					ulint		space3;
+					ulint		offset3;
+					ib_uint64_t	lsn3;
+					ib_uint64_t	lsn;
+					byte		read_buf[UNIV_PAGE_SIZE];
+					lsn = mach_read_from_8(page+FIL_PAGE_LSN);
+					/* lsn in hash table should smaller than this */
+					ret3 = fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,&read_buf,NULL);
+					ut_ad(ret3);
+					lsn3 = mach_read_from_8(read_buf+FIL_PAGE_LSN);
+					space3 = mach_read_from_4(read_buf+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+					offset3 = mach_read_from_4(read_buf+FIL_PAGE_OFFSET);
+					ut_ad( space3 == space_id );
+					ut_ad( offset3 == offset );
+					ut_ad(lsn3>=lsn);
+#endif
+					/* page in flash cache should always newer than page in disk */
+					flash_cache_hash_mutex_exit(space_id,offset);
+					continue;
+				}
+				else{
+					b = &trx_doublewrite->block[(trx_doublewrite->cur_off)%trx_doublewrite->fc_size];
+					ut_a( b->used == 0 );
+					b->space = space_id;
+					b->offset = offset;
+					b->used = 1;
+					HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+						buf_page_address_fold(b->space, b->offset),
+						b);
+					success = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,page,NULL);	
+					if ( success != DB_SUCCESS ){
+						ut_print_timestamp(stderr);
+						fprintf(stderr,"	InnoDB [Error]: Can not recover tablespace %lu, offset is %lu.\n",
+							space_id,offset);
+						ut_error;
+					}
+				}
+				flash_cache_hash_mutex_exit(space_id,offset);
+				trx_doublewrite->cur_off = trx_doublewrite->cur_off + 1;
+				srv_flash_cache_write++;
+			}
+			os_aio_simulated_wake_handler_threads();
+			os_aio_wait_until_no_pending_writes();
+			fil_flush_file_spaces(FIL_TABLESPACE);
+			i = i + srv_flash_cache_recovery_pages_per_read;
+		}
+
+		return (TRUE);
+}
+
+/********************************************************************//**
+Warm up flash cache*/
+UNIV_INTERN
+void
+fil_flash_cache_warmup(void){
+	int		ret;
+	char*		dbpath		= NULL;
+	ulint		dbpath_len	= 100;
+	os_file_dir_t	dir;
+	os_file_dir_t	dbdir;
+	os_file_stat_t	dbinfo;
+	os_file_stat_t	fileinfo;
+	ulint		err		= DB_SUCCESS;
+
+	if ( srv_flash_cache_size == 0 ){
+		return;
+	}
+
+	/* The datadir of MySQL is always the default directory of mysqld */
+
+	dir = os_file_opendir(fil_path_to_mysql_datadir, TRUE);
+
+	if (dir == NULL) {
+
+		return;
+	}
+
+	dbpath = mem_alloc(dbpath_len);
+
+	/* Scan all directories under the datadir. They are the database
+	directories of MySQL. */
+
+	ret = fil_file_readdir_next_file(&err, fil_path_to_mysql_datadir, dir,
+					 &dbinfo);
+	while (ret == 0) {
+		ulint len;
+		/* printf("Looking at %s in datadir\n", dbinfo.name); */
+
+		if (dbinfo.type == OS_FILE_TYPE_FILE
+		    || dbinfo.type == OS_FILE_TYPE_UNKNOWN) {
+
+			goto next_datadir_item;
+		}
+
+		/* We found a symlink or a directory; try opening it to see
+		if a symlink is a directory */
+
+		len = strlen(fil_path_to_mysql_datadir)
+			+ strlen (dbinfo.name) + 2;
+		if (len > dbpath_len) {
+			dbpath_len = len;
+
+			if (dbpath) {
+				mem_free(dbpath);
+			}
+
+			dbpath = mem_alloc(dbpath_len);
+		}
+		sprintf(dbpath, "%s/%s", fil_path_to_mysql_datadir,
+			dbinfo.name);
+		srv_normalize_path_for_win(dbpath);
+
+		dbdir = os_file_opendir(dbpath, FALSE);
+
+		if (dbdir != NULL) {
+			/* printf("Opened dir %s\n", dbinfo.name); */
+
+			/* We found a database directory; loop through it,
+			looking for possible .ibd files in it */
+
+			ret = fil_file_readdir_next_file(&err, dbpath, dbdir,
+							 &fileinfo);
+			while (ret == 0) {
+				/* printf(
+				"     Looking at file %s\n", fileinfo.name); */
+
+				if (fileinfo.type == OS_FILE_TYPE_DIR) {
+
+					goto next_file_item;
+				}
+
+				/* We found a symlink or a file */
+				if (strlen(fileinfo.name) > 4
+				    && 0 == strcmp(fileinfo.name
+						   + strlen(fileinfo.name) - 4,
+						   ".ibd")) {
+					/* The name ends in .ibd; try opening
+					the file */
+				   	char*		filepath;
+					os_file_t	file;
+					ibool		success;
+					byte*		buf2;
+					byte*		page;
+					ulint		space_id;
+					/* Initialize file path */
+					filepath = mem_alloc(strlen(dbinfo.name) + strlen(fileinfo.name)
+									+ strlen(fil_path_to_mysql_datadir) + 3);
+					sprintf(filepath, "%s/%s/%s", fil_path_to_mysql_datadir, dbinfo.name,
+						fileinfo.name);
+					srv_normalize_path_for_win(filepath);
+					//dict_casedn_str(filepath);
+
+					/* Get file handler */
+					file = os_file_create_simple_no_error_handling(innodb_file_sbp_data_key,
+						filepath, OS_FILE_OPEN, OS_FILE_READ_ONLY, &success);
+
+					/* Get space id */
+					buf2 = ut_malloc(2 * UNIV_PAGE_SIZE);
+					/* Align the memory for file i/o if we might have O_DIRECT set */
+					page = ut_align(buf2, UNIV_PAGE_SIZE);
+					os_file_read(file, page, 0, 0, UNIV_PAGE_SIZE);
+					/* We have to read the tablespace id from the file */
+					space_id = fsp_header_get_space_id(page);
+
+					/* Preload to secondary buffer pool */
+					if  (flash_cache_warmup_tablespace(file,dbinfo.name,strtok(fileinfo.name,"."),space_id) == FALSE )
+						goto finish;
+					
+					os_file_close(file);
+					ut_free(buf2);
+					mem_free(filepath);
+				}
+next_file_item:
+				ret = fil_file_readdir_next_file(&err,
+								 dbpath, dbdir,
+								 &fileinfo);
+			}
+
+			if (0 != os_file_closedir(dbdir)) {
+				fputs("InnoDB: Warning: could not"
+				      " close database directory ", stderr);
+				ut_print_filename(stderr, dbpath);
+				putc('\n', stderr);
+
+				err = DB_ERROR;
+			}
+		}
+
+next_datadir_item:
+		ret = fil_file_readdir_next_file(&err,
+						 fil_path_to_mysql_datadir,
+						 dir, &dbinfo);
+	}
+finish:
+	ut_print_timestamp(stderr);
+	fprintf(stderr,"  InnoDB: flash cache warm up finish.\n");
+
+	mem_free(dbpath);
 }
