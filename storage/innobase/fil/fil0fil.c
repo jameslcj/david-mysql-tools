@@ -5030,7 +5030,6 @@ flash_cache_warmup_tablespace(
 				srv_flash_cache_write++;
 				srv_flash_cache_flush++;
 				if ( trx_doublewrite->cur_off == 0 ){
-					srv_buf_pool_reads = srv_flash_cache_flush;
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"  InnoDB: warm up table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
 					ut_print_timestamp(stderr);
@@ -5048,7 +5047,6 @@ flash_cache_warmup_tablespace(
 			i = i + srv_flash_cache_recovery_pages_per_read;
 		}
 		ut_free(buf_unaligned);
-		srv_buf_pool_reads = srv_flash_cache_flush;
 		return (TRUE);
 }
 

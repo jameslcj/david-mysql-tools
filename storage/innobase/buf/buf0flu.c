@@ -2456,14 +2456,20 @@ ibool is_shutdown
 				return (0);
 			}
 		}
-		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
+		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.1*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			if ( srv_adaptive_flushing ){
-				n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
-			}
-			else{
-				n_flush = n_flush * 0.1;
-			}
+			flash_cache_mutex_exit();
+			return (0);
+		}
+		else if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.3*trx_doublewrite->fc_size
+				&& !is_shutdown){
+			//if ( srv_adaptive_flushing ){
+			//	n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
+			//}
+			//else{
+			//	n_flush = n_flush * 0.1;
+			//}
+			n_flush = PCT_IO(10);
 			if ( n_flush == 0 ){
 				flash_cache_mutex_exit();
 				return (0);
@@ -2477,14 +2483,20 @@ ibool is_shutdown
 		else{
 			n_flush = trx_doublewrite->fc_size - trx_doublewrite->flush_off;
 		}
-		if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
+		if ( (trx_doublewrite->cur_off - trx_doublewrite->flush_off) < 0.1*trx_doublewrite->fc_size
 				&& !is_shutdown){
-			if ( srv_adaptive_flushing ){
-				n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
-			}
-			else{
-				n_flush = n_flush * 0.1;
-			}
+			flash_cache_mutex_exit();
+			return (0);
+		}
+		else if ( (trx_doublewrite->flush_off - trx_doublewrite->cur_off)  < 0.3*trx_doublewrite->fc_size
+				&& !is_shutdown){
+			//if ( srv_adaptive_flushing ){
+			//	n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
+			//}
+			//else{
+			//	n_flush = n_flush * 0.1;
+			//}
+			n_flush = PCT_IO(10);
 			if ( n_flush == 0 ){
 				flash_cache_mutex_exit();
 				return (0);
@@ -2575,9 +2587,6 @@ ibool is_shutdown
 	}
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
-
-
-
 
 #ifdef UNIV_DEBUG
 	buf_flush_flash_cache_validate();
