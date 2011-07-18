@@ -4938,7 +4938,7 @@ flash_cache_warmup_tablespace(
 		}
 
 		if ( !success ){
-			return FALSE;
+			return TRUE;
 		}
 
 		if ( trx_doublewrite->cur_round == trx_doublewrite->flush_round ){
@@ -4966,11 +4966,7 @@ flash_cache_warmup_tablespace(
 			success = os_file_read_no_error_handling(file, buf, foffset, foffset_high, UNIV_PAGE_SIZE*srv_flash_cache_recovery_pages_per_read);
 			if ( !success ){
 				ut_free(buf_unaligned);
-				ut_print_timestamp(stderr);
-				fprintf(stderr,"  InnoDB: preloading table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
-				ut_print_timestamp(stderr);
-				fprintf(stderr,"  InnoDB: secondary buffer pool is full, preloading stop.\n");
-				return (FALSE);
+				return (TRUE);
 			}
 			for( j=0; j<srv_flash_cache_recovery_pages_per_read; j++ ){
 				page = buf + j*UNIV_PAGE_SIZE;
@@ -5029,16 +5025,25 @@ flash_cache_warmup_tablespace(
 					}
 				}
 				flash_cache_hash_mutex_exit(space_id,offset);
-				trx_doublewrite->cur_off = trx_doublewrite->cur_off + 1;
+				trx_doublewrite->cur_off = (trx_doublewrite->cur_off + 1)%trx_doublewrite->fc_size;
+				trx_doublewrite->flush_off = (trx_doublewrite->flush_off + 1)%trx_doublewrite->fc_size;
 				srv_flash_cache_write++;
 				srv_flash_cache_flush++;
+				if ( trx_doublewrite->cur_off == 0 ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"  InnoDB: warm up table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"  InnoDB: flash cache is full, warm up stop.\n");
+					ut_free(buf_unaligned);
+					return FALSE;
+				}
 			}
 			os_aio_simulated_wake_handler_threads();
 			os_aio_wait_until_no_pending_writes();
 			fil_flush_file_spaces(FIL_TABLESPACE);
 			i = i + srv_flash_cache_recovery_pages_per_read;
 		}
-
+		ut_free(buf_unaligned);
 		return (TRUE);
 }
 
@@ -5157,8 +5162,9 @@ fil_flash_cache_warmup(void){
 					space_id = fsp_header_get_space_id(page);
 
 					/* Preload to secondary buffer pool */
-					if  (flash_cache_warmup_tablespace(file,dbinfo.name,strtok(fileinfo.name,"."),space_id) == FALSE )
-						goto finish;
+					if  (flash_cache_warmup_tablespace(file,dbinfo.name,strtok(fileinfo.name,"."),space_id) == FALSE ){
+						goto finish;	
+					}
 					
 					os_file_close(file);
 					ut_free(buf2);
@@ -5188,7 +5194,9 @@ next_datadir_item:
 finish:
 	ut_print_timestamp(stderr);
 	fprintf(stderr,"  InnoDB: flash cache warm up finish.\n");
+	flash_cache_mutex_enter();
 	flash_cache_log_commit();
+	flash_cache_mutex_exit();
 
 	mem_free(dbpath);
 }

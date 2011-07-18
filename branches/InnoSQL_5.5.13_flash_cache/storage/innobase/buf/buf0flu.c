@@ -77,8 +77,6 @@ static buf_flush_stat_t	buf_flush_stat_sum;
 /** Number of pages flushed through non flush_list flushes. */
 static ulint buf_lru_flush_page_count = 0;
 
-static char str_flash_cache_log[16];
-
 /* @} */
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
