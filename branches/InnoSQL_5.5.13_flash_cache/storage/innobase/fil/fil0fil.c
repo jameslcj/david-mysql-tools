@@ -5031,6 +5031,7 @@ flash_cache_warmup_tablespace(
 				flash_cache_hash_mutex_exit(space_id,offset);
 				trx_doublewrite->cur_off = trx_doublewrite->cur_off + 1;
 				srv_flash_cache_write++;
+				srv_flash_cache_flush++;
 			}
 			os_aio_simulated_wake_handler_threads();
 			os_aio_wait_until_no_pending_writes();
@@ -5187,6 +5188,7 @@ next_datadir_item:
 finish:
 	ut_print_timestamp(stderr);
 	fprintf(stderr,"  InnoDB: flash cache warm up finish.\n");
+	flash_cache_log_commit();
 
 	mem_free(dbpath);
 }

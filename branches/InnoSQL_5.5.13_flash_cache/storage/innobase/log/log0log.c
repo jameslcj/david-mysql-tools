@@ -165,6 +165,17 @@ log_io_complete_archive(void);
 /*=========================*/
 #endif /* UNIV_LOG_ARCHIVE */
 
+
+UNIV_INTERN
+ibool
+flash_cache_no_recovery(
+/*==========================================*/
+){
+	if ( flash_cache_log->recovery )
+		return FALSE;
+	return TRUE;
+}
+
 UNIV_INTERN
 ulint
 flash_cache_log_checksum(
@@ -661,7 +672,9 @@ flash_cache_log_recovery(
 	ut_print_timestamp(stderr);
 	fprintf(stderr,"	InnoDB: Recover from flash cache finish.\n");
 
-	//memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+	if ( !flash_cache_log->recovery ){
+		memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
+	}
 
 	if ( srv_flash_cache_use_log ){
 		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_USED,1);

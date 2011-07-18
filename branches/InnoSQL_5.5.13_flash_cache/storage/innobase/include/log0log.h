@@ -52,6 +52,11 @@ Created 12/9/1995 Heikki Tuuri
 #define FLASH_CACHE_LOG_WRITE_ROUND		18
 #define FLASH_CACHE_LOG_CHKSUM2			( FLASH_CACHE_BUFFER_SIZE - 4 )
 
+UNIV_INTERN
+ibool
+flash_cache_no_recovery(
+/*==========================================*/
+);
 /****************************************************************//**
 Start flash cache log recovery.																  
 */
