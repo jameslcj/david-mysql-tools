@@ -5145,7 +5145,7 @@ fil_flash_cache_warmup(void){
 					//dict_casedn_str(filepath);
 
 					/* Get file handler */
-					file = os_file_create_simple_no_error_handling(innodb_file_sbp_data_key,
+					file = os_file_create_simple_no_error_handling(srv_flash_cache_warmup_table,
 						filepath, OS_FILE_OPEN, OS_FILE_READ_ONLY, &success);
 
 					/* Get space id */
