@@ -336,7 +336,7 @@ ulint* n_pages_recovery
 		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
 		lsn  = mach_read_from_8(page+FIL_PAGE_LSN);
-
+#ifdef UNIV_DEBUG
 		/* read space, offset lsn from disk page header */
 		ret = fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,read_buf,NULL);
 		if ( ret != DB_SUCCESS ){
@@ -353,15 +353,14 @@ ulint* n_pages_recovery
 		if ( lsn2 != 0 ){
 			ut_a(space == space2 && offset == offset2);
 		}
-		ut_a(lsn >= lsn2);
+		ut_ad( lsn >= lsn2 );
 
-#ifdef UNIV_DEBUG
 		if ( lsn == lsn2 ){
 			ut_ad(ut_memcmp(page,read_buf,UNIV_PAGE_SIZE) == 0 );
 		}
 #endif
-
-		if ( lsn > lsn2 ){
+		ut_a(lsn >= lsn2);
+		if ( lsn >= lsn2 ){
 			/* if lsn greater than lsn2,
 				we should add this page to flash cache hash table*/
 
