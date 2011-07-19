@@ -5144,10 +5144,12 @@ buf_print_io(
 		"FLASH CACHE INFO\n"
 		"----------------------\n", file);
 		fprintf(file,	"flash cache size: %lu\n"
+						"flash cache thread status: %s\n"
 						"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
 						"flash cache reads %lu, writes %lu, flush %lu(%lu)\n"
 						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
 						(ulong)trx_doublewrite->fc_size,
+						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->cur_off,
 						(ulong)trx_doublewrite->cur_round,
 						(ulong)trx_doublewrite->flush_off,

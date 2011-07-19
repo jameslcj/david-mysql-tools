@@ -117,6 +117,8 @@ UNIV_INTERN ibool	srv_error_monitor_active = FALSE;
 
 UNIV_INTERN const char*	srv_main_thread_op_info = "";
 
+UNIV_INTERN const char*	srv_flash_cache_thread_op_info = "";
+
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
 UNIV_INTERN const char	srv_mysql50_table_name_prefix[9] = "#mysql50#";
 
@@ -1977,7 +1979,13 @@ srv_printf_innodb_monitor(
 	fprintf(file, "Main thread id %lu, state: %s\n",
 		(ulong) srv_main_thread_id,
 		srv_main_thread_op_info);
+
 #endif
+	if ( srv_flash_cache_size > 0 ){
+		fprintf(file, "Flash cache thread state: %s\n",
+			srv_flash_cache_thread_op_info);
+	}
+
 	fprintf(file,
 		"Number of rows inserted " ULINTPF
 		", updated " ULINTPF ", deleted " ULINTPF
@@ -2993,7 +3001,7 @@ background_loop:
 	mutex_exit(&kernel_mutex);
 
 flush_loop:
-	srv_main_thread_op_info = "flushing buffer pool pages";
+	srv_main_thread_op_info = "flushing buffer pool pages in flush loop";
 	srv_main_flush_loops++;
 	if (srv_fast_shutdown < 2) {
 		n_pages_flushed = buf_flush_list(
@@ -3249,7 +3257,7 @@ srv_flash_cache_thread(
 	ulint count = 0;
 	ulint write_off;
 	ulint i;
-
+	ulint old_activity_count;
 	mutex_enter(&kernel_mutex);
 
 	slot = srv_table_reserve_slot(SRV_FLASH_CACHE);
@@ -3260,9 +3268,12 @@ srv_flash_cache_thread(
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
 		write_off = trx_doublewrite->cur_off;
+		old_activity_count = srv_activity_count;
 
 		for ( i = 0; i < 30; i++ ){
 			cur_time = ut_time_ms();
+
+			srv_flash_cache_thread_op_info = "flushing flash cache pages";
 
 			n_flush = buf_flush_flash_cache_page(FALSE);
 
@@ -3270,28 +3281,33 @@ srv_flash_cache_thread(
 
 			if ( n_flush == 0 ){
 				os_thread_sleep(1000000);
-				count++;
+				srv_flash_cache_thread_op_info = "flash cache thread is idle";
 			}
 			else if ( n_flush ==  PCT_IO(100) ){
-				count = 0;
+				srv_flash_cache_thread_op_info = "flusing full flash cache pages";
 			}
-			else if ( n_flush >= PCT_IO(75) ){
+			else if ( n_flush >= PCT_IO(70) ){
+				srv_flash_cache_thread_op_info = "flusing many flash cache pages";
 				os_thread_sleep(500);
-				count = 0;
 			}
 			else{
+				srv_flash_cache_thread_op_info = "flusing less flash cache pages";
 				os_thread_sleep(ut_min(1000000,(1000-cur_time)*1000));
-				count = 0;
 			}
 		}
 
+		while ( old_activity_count == srv_activity_count ){
+			srv_flash_cache_thread_op_info = "flushing full flash cache pages in idle";
+			if ( buf_flush_flash_cache_page(TRUE) == 0 )
+				break;
+		}
 		//if ( count == 30 ){
 		//	/* if there is no activity in 30 second, we flush as many page as we can */
 		//	while ( write_off == trx_doublewrite->cur_off ){
 		//		if ( buf_flush_flash_cache_page(TRUE) == 0 )
 		//			break;
 		//	}
-		//}
+		//}0
 
 		count = 0;
 	}
