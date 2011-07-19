@@ -84,6 +84,8 @@ extern ulint srv_buf_pool_write_requests; /*!< variable to count write request
 					  issued */
 extern ulint srv_buf_pool_instances;
 extern ulint srv_buf_pool_curr_size;
+
+
 #else /* !UNIV_HOTBACKUP */
 extern buf_block_t*	back_block1;	/*!< first block, for --apply-log */
 extern buf_block_t*	back_block2;	/*!< second block, for page reorganize */

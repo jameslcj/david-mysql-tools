@@ -60,8 +60,7 @@ extern ulint	srv_flash_cache_recovery_pages_per_read;
 extern my_bool	srv_flash_cache_use_log;
 
 extern FILE*	srv_flash_cache_log_file;
-
-//extern os_file_t	srv_flash_cache_log_file;
+extern const char*	srv_flash_cache_thread_op_info;
 
 extern const char srv_flash_cache_log_file_name[16];
 
@@ -701,12 +700,12 @@ srv_que_task_enqueue_low(
 	que_thr_t*	thr);	/*!< in: query thread */
 
 /**********************************************************************//**
-Check whether any background thread is active.
-@return FALSE if all are are suspended or have exited. */
+Get flash thread info */
 UNIV_INTERN
-ibool
-srv_is_any_background_thread_active(void);
-/*======================================*/
+const char*
+srv_get_flash_cache_thread_info(
+/*=====================*/
+);	
 
 /** Status variables to be passed to MySQL */
 struct export_var_struct{
