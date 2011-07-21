@@ -250,7 +250,7 @@ static const ulint BUF_PAGE_READ_MAX_RETRIES = 100;
 UNIV_INTERN buf_pool_t*	buf_pool_ptr;
 
 /** Write cache info */
-UNIV_INTERN write_cache_stat_t write_cache_stat;
+UNIV_INTERN flash_cache_stat_t flash_cache_stat;
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 static ulint	buf_dbg_counter	= 0; /*!< This is used to insert validation
@@ -5150,16 +5150,16 @@ buf_print_io(
 						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
 						(ulong)trx_doublewrite->fc_size,
 						srv_flash_cache_thread_op_info,
-						(ulong)trx_doublewrite->cur_off,
-						(ulong)trx_doublewrite->cur_round,
+						(ulong)trx_doublewrite->write_off,
+						(ulong)trx_doublewrite->write_round,
 						(ulong)trx_doublewrite->flush_off,
 						(ulong)trx_doublewrite->flush_round,
 						(ulong)srv_flash_cache_read,
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
 						(ulong)srv_flash_cache_merge_write,
-						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - write_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
-						(ulong)difftime(cur_time,write_cache_stat.last_printout_time),
+						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
+						(ulong)difftime(cur_time,flash_cache_stat.last_printout_time),
 						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/(srv_buf_pool_reads + pool_info_total->n_ra_pages_read)
 
 			);
@@ -5197,14 +5197,14 @@ buf_refresh_io_stats_all(void)
 		buf_refresh_io_stats(buf_pool);
 	}
 	if( srv_flash_cache_size > 0 ){
-		write_cache_stat.flush_off = trx_doublewrite->flush_off;
-		write_cache_stat.flush_round = trx_doublewrite->flush_round;
-		write_cache_stat.write_off = trx_doublewrite->cur_off;
-		write_cache_stat.write_round = trx_doublewrite->cur_round;
-		write_cache_stat.n_pages_write = srv_flash_cache_flush;
-		write_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
-		write_cache_stat.n_pages_read = srv_flash_cache_read;
-		write_cache_stat.last_printout_time = ut_time();
+		flash_cache_stat.flush_off = trx_doublewrite->flush_off;
+		flash_cache_stat.flush_round = trx_doublewrite->flush_round;
+		flash_cache_stat.write_off = trx_doublewrite->write_off;
+		flash_cache_stat.write_round = trx_doublewrite->write_round;
+		flash_cache_stat.n_pages_write = srv_flash_cache_flush;
+		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
+		flash_cache_stat.n_pages_read = srv_flash_cache_read;
+		flash_cache_stat.last_printout_time = ut_time();
 	}
 }
 

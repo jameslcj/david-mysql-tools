@@ -4941,34 +4941,34 @@ flash_cache_warmup_tablespace(
 			return TRUE;
 		}
 
-		if ( trx_doublewrite->cur_round == trx_doublewrite->flush_round ){
-			n_pages = trx_doublewrite->fc_size - ( trx_doublewrite->cur_off - trx_doublewrite->flush_off ) ;
+		if ( trx_doublewrite->write_round == trx_doublewrite->flush_round ){
+			n_pages = trx_doublewrite->fc_size - ( trx_doublewrite->write_off - trx_doublewrite->flush_off ) ;
 		}
 		else{
-			ut_a(trx_doublewrite->cur_round = trx_doublewrite->flush_round+1);
-			n_pages = trx_doublewrite->flush_off - trx_doublewrite->cur_off;
+			ut_a(trx_doublewrite->write_round = trx_doublewrite->flush_round+1);
+			n_pages = trx_doublewrite->flush_off - trx_doublewrite->write_off;
 		}
 
 		/* start write offset */
-		write_off = trx_doublewrite->cur_off;
+		write_off = trx_doublewrite->write_off;
 		/* get file size */
 		os_file_get_size(file,&size,&size_high);
 		/* malloc memory for page to read */
-		buf_unaligned = (byte*)ut_malloc((srv_flash_cache_recovery_pages_per_read+1)*UNIV_PAGE_SIZE);
+		buf_unaligned = (byte*)ut_malloc((srv_flash_cache_pages_per_read+1)*UNIV_PAGE_SIZE);
 		buf = (byte*)ut_align(buf_unaligned,UNIV_PAGE_SIZE);
 
 		ut_print_timestamp(stderr);
 		fprintf(stderr,"	InnoDB: start to warm up tablespace %s.%s to flash cache.\n",dbname,tablename);
 
-		while( i + srv_flash_cache_recovery_pages_per_read < n_pages ){
+		while( i + srv_flash_cache_pages_per_read < n_pages ){
 			foffset = ((ulint)(i*UNIV_PAGE_SIZE)) & 0xFFFFFFFFUL;
 			foffset_high = (ib_uint64_t)(i*UNIV_PAGE_SIZE) >> 32;
-			success = os_file_read_no_error_handling(file, buf, foffset, foffset_high, UNIV_PAGE_SIZE*srv_flash_cache_recovery_pages_per_read);
+			success = os_file_read_no_error_handling(file, buf, foffset, foffset_high, UNIV_PAGE_SIZE*srv_flash_cache_pages_per_read);
 			if ( !success ){
 				ut_free(buf_unaligned);
 				return (TRUE);
 			}
-			for( j=0; j<srv_flash_cache_recovery_pages_per_read; j++ ){
+			for( j=0; j<srv_flash_cache_pages_per_read; j++ ){
 				page = buf + j*UNIV_PAGE_SIZE;
 				if ( fil_page_get_type(page) != FIL_PAGE_INDEX 
 							&& fil_page_get_type(page) != FIL_PAGE_INODE 
@@ -5008,7 +5008,7 @@ flash_cache_warmup_tablespace(
 					continue;
 				}
 				else{
-					b = &trx_doublewrite->block[(trx_doublewrite->cur_off)%trx_doublewrite->fc_size];
+					b = &trx_doublewrite->block[(trx_doublewrite->write_off)%trx_doublewrite->fc_size];
 					ut_a( b->used == 0 );
 					b->space = space_id;
 					b->offset = offset;
@@ -5025,11 +5025,11 @@ flash_cache_warmup_tablespace(
 					}
 				}
 				flash_cache_hash_mutex_exit(space_id,offset);
-				trx_doublewrite->cur_off = (trx_doublewrite->cur_off + 1)%trx_doublewrite->fc_size;
+				trx_doublewrite->write_off = (trx_doublewrite->write_off + 1)%trx_doublewrite->fc_size;
 				trx_doublewrite->flush_off = (trx_doublewrite->flush_off + 1)%trx_doublewrite->fc_size;
 				srv_flash_cache_write++;
 				srv_flash_cache_flush++;
-				if ( trx_doublewrite->cur_off == 0 ){
+				if ( trx_doublewrite->write_off == 0 ){
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"  InnoDB: warm up table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
 					ut_print_timestamp(stderr);
@@ -5044,7 +5044,7 @@ flash_cache_warmup_tablespace(
 			os_aio_simulated_wake_handler_threads();
 			os_aio_wait_until_no_pending_writes();
 			fil_flush_file_spaces(FIL_TABLESPACE);
-			i = i + srv_flash_cache_recovery_pages_per_read;
+			i = i + srv_flash_cache_pages_per_read;
 		}
 		ut_free(buf_unaligned);
 		return (TRUE);
@@ -5200,6 +5200,8 @@ finish:
 	flash_cache_mutex_enter();
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
-
+#ifdef UNIV_DEBUG
+	buf_flush_flash_cache_validate();
+#endif
 	mem_free(dbpath);
 }

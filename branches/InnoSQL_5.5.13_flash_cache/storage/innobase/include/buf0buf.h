@@ -122,7 +122,7 @@ enum buf_page_state {
 					before putting to the free list */
 };
 
-struct write_cache_stat_struct{
+struct flash_cache_stat_struct{
 	ulint write_off;
 	ulint write_round;
 	ulint flush_off;
@@ -201,7 +201,7 @@ struct buf_pool_info_struct{
 };
 
 typedef struct buf_pool_info_struct	buf_pool_info_t;
-typedef struct write_cache_stat_struct write_cache_stat_t;
+typedef struct flash_cache_stat_struct flash_cache_stat_t;
 
 #ifndef UNIV_HOTBACKUP
 /********************************************************************//**

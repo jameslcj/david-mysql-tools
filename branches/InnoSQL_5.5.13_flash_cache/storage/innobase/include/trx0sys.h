@@ -624,10 +624,10 @@ struct trx_doublewrite_struct{
 	hash_table_t*	fc_hash;
 					/*!< hash table of flash cache pages */
 	ulong			fc_size; /*!< flash cache size */
-	ulint			cur_off; /*!< write to flash cache offset */
+	ulint			write_off; /*!< write to flash cache offset */
 	ulint			flush_off; /*!< flush to disk this offset */
-	ib_uint64_t		cur_round; /* write round */
-	ib_uint64_t		flush_round; /* flush round */
+	ulint			write_round; /* write round */
+	ulint			flush_round; /* flush round */
 	trx_flashcache_block_t* block; /* flash cache block */
 	byte*			read_buf_unalign; /* unalign read buf */
 	byte*			read_buf;	/* read buf */

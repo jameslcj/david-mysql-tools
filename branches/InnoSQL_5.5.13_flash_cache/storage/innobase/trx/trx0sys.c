@@ -180,7 +180,7 @@ trx_flash_cache_init(
 ){
 	ulong i ;
 
-	trx_doublewrite->cur_off = 0;
+	trx_doublewrite->write_off = 0;
 	trx_doublewrite->flush_off = 0;
 	trx_doublewrite->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; /* first page using as flash cache header */
 #ifdef UNIV_SYNC_DEBUG
@@ -188,7 +188,7 @@ trx_flash_cache_init(
 #else
 	trx_doublewrite->fc_hash = ha_create(2 * trx_doublewrite->fc_size,1,0);
 #endif
-	trx_doublewrite->cur_round = 0;
+	trx_doublewrite->write_round = 0;
 	trx_doublewrite->flush_round = 0;
 	trx_doublewrite->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc_size);
 	trx_doublewrite->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
