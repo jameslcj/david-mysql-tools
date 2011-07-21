@@ -97,7 +97,10 @@ UNIV_INTERN ulint	srv_flash_cache_merge_write = 0;
 UNIV_INTERN FILE*	srv_flash_cache_log_file;
 UNIV_INTERN const char srv_flash_cache_log_file_name[16] = "flash_cache.log";
 
-UNIV_INTERN ulint	srv_flash_cache_recovery_pages_per_read = 512;
+UNIV_INTERN ulint	srv_flash_cache_pages_per_read = 512;
+UNIV_INTERN ulint	srv_flash_cache_write_cache_pct = 10;
+UNIV_INTERN ulint	srv_flash_cache_do_full_io_pct = 30;
+
 UNIV_INTERN my_bool	srv_flash_cache_use_log = TRUE;
 
 /* The following counter is incremented whenever there is some user activity
@@ -3267,7 +3270,7 @@ srv_flash_cache_thread(
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
-		write_off = trx_doublewrite->cur_off;
+		write_off = trx_doublewrite->write_off;
 		old_activity_count = srv_activity_count;
 
 		for ( i = 0; i < 30; i++ ){
@@ -3303,7 +3306,7 @@ srv_flash_cache_thread(
 		}
 		//if ( count == 30 ){
 		//	/* if there is no activity in 30 second, we flush as many page as we can */
-		//	while ( write_off == trx_doublewrite->cur_off ){
+		//	while ( write_off == trx_doublewrite->write_off ){
 		//		if ( buf_flush_flash_cache_page(TRUE) == 0 )
 		//			break;
 		//	}
@@ -3315,8 +3318,8 @@ srv_flash_cache_thread(
 	while ( 1 ){
 		/* This is only extra safety, the thread should exit
 		already when the event wait ends */
-		if ( trx_doublewrite->flush_off == trx_doublewrite->cur_off 
-			&& trx_doublewrite->flush_round == trx_doublewrite->cur_round ){
+		if ( trx_doublewrite->flush_off == trx_doublewrite->write_off 
+			&& trx_doublewrite->flush_round == trx_doublewrite->write_round ){
 			
 			mutex_enter(&kernel_mutex);
 
