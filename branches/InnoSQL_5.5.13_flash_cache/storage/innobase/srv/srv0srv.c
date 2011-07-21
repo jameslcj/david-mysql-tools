@@ -87,7 +87,7 @@ Created 10/8/1995 Heikki Tuuri
 #include "mysql/service_thd_wait.h"
 
 
-UNIV_INTERN ulong	srv_flash_cache_size = 0;
+UNIV_INTERN ulint	srv_flash_cache_size = 0;
 UNIV_INTERN char*	srv_flash_cache_file = NULL;
 UNIV_INTERN char*	srv_flash_cache_warmup_table = NULL;
 UNIV_INTERN ulint	srv_flash_cache_read = 0;

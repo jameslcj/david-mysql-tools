@@ -2589,8 +2589,7 @@ ibool is_shutdown
 	flash_cache_mutex_exit();
 
 #ifdef UNIV_DEBUG
-	if ( trx_doublewrite->flush_off % 10000 == 0 )
-		buf_flush_flash_cache_validate();
+	buf_flush_flash_cache_validate();
 #endif
 
 	return n_flush;
