@@ -181,11 +181,11 @@ ulint
 flash_cache_log_checksum(
 /*==========================================*/
 const byte* page, /*!< in: buffer page */
-ulint write_offset /*< in: write offset of flash cache */
+ulint len /*< in: write offset of flash cache */
 ){
 	ulint checksum;
 
-	checksum = ut_fold_binary(page,write_offset);
+	checksum = ut_fold_binary(page,512);
 
 	checksum = checksum & 0xFFFFFFFFUL;
 
