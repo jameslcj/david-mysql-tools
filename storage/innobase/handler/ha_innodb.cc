@@ -95,6 +95,8 @@ extern "C" {
 #  define MYSQL_PLUGIN_IMPORT /* nothing */
 # endif /* MYSQL_PLUGIN_IMPORT */
 
+static long long innobase_flash_cache_size;
+
 /** to protect innobase_open_files */
 static mysql_mutex_t innobase_share_mutex;
 /** to force correct commit order in binlog */
@@ -2423,6 +2425,10 @@ innobase_change_buffering_inited_ok:
 
 	/* --------------------------------------------------*/
 
+	if ( innobase_flash_cache_size > 0 ){
+		srv_flash_cache_size = (ulint) innobase_flash_cache_size;
+	}
+
 	srv_file_flush_method_str = innobase_file_flush_method;
 
 	srv_n_log_groups = (ulint) innobase_mirrored_log_groups;
@@ -2433,7 +2439,6 @@ innobase_change_buffering_inited_ok:
 	srv_log_archive_on = (ulint) innobase_log_archive;
 #endif /* UNIV_LOG_ARCHIVE */
 	srv_log_buffer_size = (ulint) innobase_log_buffer_size;
-
 	srv_buf_pool_size = (ulint) innobase_buffer_pool_size;
 	srv_buf_pool_instances = (ulint) innobase_buffer_pool_instances;
 
@@ -11325,10 +11330,16 @@ static MYSQL_SYSVAR_STR(flash_cache_warmup_table, srv_flash_cache_warmup_table,
   "Flash cache warm up.",
   NULL, NULL, NULL);
 
-static MYSQL_SYSVAR_ULONG(flash_cache_size, srv_flash_cache_size,
+//static MYSQL_SYSVAR_ULONG(flash_cache_size, srv_flash_cache_size,
+//  PLUGIN_VAR_READONLY,
+//  "Flash cache file size",
+//  NULL, NULL, 0, 0, ULONG_MAX, 0);
+
+static MYSQL_SYSVAR_LONGLONG(flash_cache_size, innobase_flash_cache_size,
   PLUGIN_VAR_READONLY,
-  "Flash cache file size",
-  NULL, NULL, 0, 0, ULONG_MAX, 0);
+  "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
+  NULL, NULL, 0, 0, LONGLONG_MAX, 0);
+
 
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
   PLUGIN_VAR_READONLY,

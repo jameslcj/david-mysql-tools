@@ -48,7 +48,7 @@ Created 10/10/1995 Heikki Tuuri
 #include "que0types.h"
 #include "trx0types.h"
 
-extern ulong	srv_flash_cache_size;
+extern ulint	srv_flash_cache_size;
 extern char*	srv_flash_cache_file;
 extern char*	srv_flash_cache_warmup_table;
 /** Flash cache status variables */

@@ -623,7 +623,7 @@ struct trx_doublewrite_struct{
 					/*!< mutex protecting flash cache */
 	hash_table_t*	fc_hash;
 					/*!< hash table of flash cache pages */
-	ulong			fc_size; /*!< flash cache size */
+	ulint			fc_size; /*!< flash cache size */
 	ulint			write_off; /*!< write to flash cache offset */
 	ulint			flush_off; /*!< flush to disk this offset */
 	ulint			write_round; /* write round */
