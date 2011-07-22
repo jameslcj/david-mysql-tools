@@ -2588,7 +2588,7 @@ ibool is_shutdown
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
 
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_CACHE_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
 
