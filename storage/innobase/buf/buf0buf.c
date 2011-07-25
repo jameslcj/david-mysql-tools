@@ -5148,12 +5148,12 @@ buf_print_io(
 						"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
 						"flash cache reads %lu, writes %lu, flush %lu(%lu)\n"
 						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
-						(ulong)trx_doublewrite->fc_size,
+						(ulong)trx_doublewrite->fc->fc_size,
 						srv_flash_cache_thread_op_info,
-						(ulong)trx_doublewrite->write_off,
-						(ulong)trx_doublewrite->write_round,
-						(ulong)trx_doublewrite->flush_off,
-						(ulong)trx_doublewrite->flush_round,
+						(ulong)trx_doublewrite->fc->write_off,
+						(ulong)trx_doublewrite->fc->write_round,
+						(ulong)trx_doublewrite->fc->flush_off,
+						(ulong)trx_doublewrite->fc->flush_round,
 						(ulong)srv_flash_cache_read,
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
@@ -5197,10 +5197,10 @@ buf_refresh_io_stats_all(void)
 		buf_refresh_io_stats(buf_pool);
 	}
 	if( srv_flash_cache_size > 0 ){
-		flash_cache_stat.flush_off = trx_doublewrite->flush_off;
-		flash_cache_stat.flush_round = trx_doublewrite->flush_round;
-		flash_cache_stat.write_off = trx_doublewrite->write_off;
-		flash_cache_stat.write_round = trx_doublewrite->write_round;
+		flash_cache_stat.flush_off = trx_doublewrite->fc->flush_off;
+		flash_cache_stat.flush_round = trx_doublewrite->fc->flush_round;
+		flash_cache_stat.write_off = trx_doublewrite->fc->write_off;
+		flash_cache_stat.write_round = trx_doublewrite->fc->write_round;
 		flash_cache_stat.n_pages_write = srv_flash_cache_flush;
 		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
 		flash_cache_stat.n_pages_read = srv_flash_cache_read;

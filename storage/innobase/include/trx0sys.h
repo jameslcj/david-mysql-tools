@@ -577,13 +577,13 @@ identifier is added to this 64-bit constant. */
 	 | TRX_SYS_FILE_FORMAT_TAG_MAGIC_N_LOW)
 /* @} */
 
-#define flash_cache_mutex_enter() (mutex_enter(&trx_doublewrite->fc_mutex))
-#define flash_cache_mutex_exit()  (mutex_exit(&trx_doublewrite->fc_mutex))
+#define flash_cache_mutex_enter() (mutex_enter(&trx_doublewrite->fc->fc_mutex))
+#define flash_cache_mutex_exit()  (mutex_exit(&trx_doublewrite->fc->fc_mutex))
 #define flash_cache_hash_mutex_enter(space,offset) do{\
-	hash_mutex_enter(trx_doublewrite->fc_hash,buf_page_address_fold(space,offset));\
+	hash_mutex_enter(trx_doublewrite->fc->fc_hash,buf_page_address_fold(space,offset));\
 }while(0)
 #define flash_cache_hash_mutex_exit(space,offset) do{\
-	hash_mutex_exit(trx_doublewrite->fc_hash,buf_page_address_fold(space,offset));\
+	hash_mutex_exit(trx_doublewrite->fc->fc_hash,buf_page_address_fold(space,offset));\
 }while(0)
 
 
@@ -594,6 +594,21 @@ struct trx_flashcache_block_struct{
 	unsigned	fil_offset:32;	/*!< flash cache page number */
 	unsigned	used:1;			/*!< whether it is used */
 	trx_flashcache_block_t* hash;	/*!< hash chain */
+};
+
+struct trx_flashcache_struct{
+	mutex_t			fc_mutex;
+					/*!< mutex protecting flash cache */
+	hash_table_t*	fc_hash;
+					/*!< hash table of flash cache pages */
+	ulint			fc_size; /*!< flash cache size */
+	ulint			write_off; /*!< write to flash cache offset */
+	ulint			flush_off; /*!< flush to disk this offset */
+	ulint			write_round; /* write round */
+	ulint			flush_round; /* flush round */
+	trx_flashcache_block_t* block; /* flash cache block */
+	byte*			read_buf_unalign; /* unalign read buf */
+	byte*			read_buf;	/* read buf */
 };
 
 /** Doublewrite control struct */
@@ -617,20 +632,20 @@ struct trx_doublewrite_struct{
 	/* @} */
 
 	/** @Flash cache fields */
-
+	trx_flashcache_t* fc;
 	/* @{ */
-	mutex_t			fc_mutex;
-					/*!< mutex protecting flash cache */
-	hash_table_t*	fc_hash;
-					/*!< hash table of flash cache pages */
-	ulint			fc_size; /*!< flash cache size */
-	ulint			write_off; /*!< write to flash cache offset */
-	ulint			flush_off; /*!< flush to disk this offset */
-	ulint			write_round; /* write round */
-	ulint			flush_round; /* flush round */
-	trx_flashcache_block_t* block; /* flash cache block */
-	byte*			read_buf_unalign; /* unalign read buf */
-	byte*			read_buf;	/* read buf */
+	//mutex_t			fc_mutex;
+	//				/*!< mutex protecting flash cache */
+	//hash_table_t*	fc_hash;
+	//				/*!< hash table of flash cache pages */
+	//ulint			fc_size; /*!< flash cache size */
+	//ulint			write_off; /*!< write to flash cache offset */
+	//ulint			flush_off; /*!< flush to disk this offset */
+	//ulint			write_round; /* write round */
+	//ulint			flush_round; /* flush round */
+	//trx_flashcache_block_t* block; /* flash cache block */
+	//byte*			read_buf_unalign; /* unalign read buf */
+	//byte*			read_buf;	/* read buf */
 };
 
 /** The transaction system central memory data structure; protected by the
