@@ -199,19 +199,19 @@ flash_cache_log_commit(
 ){
 	ulint checksum;
 
-	ut_ad(mutex_own(&trx_doublewrite->fc_mutex));
+	ut_ad(mutex_own(&trx_doublewrite->fc->fc_mutex));
 
 	if ( !srv_flash_cache_use_log )
 		return;
 	
-	checksum = flash_cache_log_checksum(flash_cache_log->buf,trx_doublewrite->write_off);
+	checksum = flash_cache_log_checksum(flash_cache_log->buf,trx_doublewrite->fc->write_off);
 
 	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_CHKSUM,checksum);
 	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_CHKSUM2,checksum);
-	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_OFFSET,trx_doublewrite->flush_off);
-	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_ROUND,trx_doublewrite->flush_round);
-	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_OFFSET,trx_doublewrite->write_off);
-	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_ROUND,trx_doublewrite->write_round);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_OFFSET,trx_doublewrite->fc->flush_off);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_FLUSH_ROUND,trx_doublewrite->fc->flush_round);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_OFFSET,trx_doublewrite->fc->write_off);
+	mach_write_to_4(flash_cache_log->buf+FLASH_CACHE_LOG_WRITE_ROUND,trx_doublewrite->fc->write_round);
 
 	os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
 	os_file_flush(flash_cache_log->file);
@@ -279,10 +279,10 @@ flash_cache_log_init(
 	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
 
 	if ( flash_cache_log->recovery ){
-		trx_doublewrite->write_round = flash_cache_log->write_round;
-		trx_doublewrite->write_off = flash_cache_log->write_offset;
-		trx_doublewrite->flush_off = flash_cache_log->flush_offset;
-		trx_doublewrite->flush_round = flash_cache_log->flush_round;
+		trx_doublewrite->fc->write_round = flash_cache_log->write_round;
+		trx_doublewrite->fc->write_off = flash_cache_log->write_offset;
+		trx_doublewrite->fc->flush_off = flash_cache_log->flush_offset;
+		trx_doublewrite->fc->flush_round = flash_cache_log->flush_round;
 	}
 }
 
@@ -368,7 +368,7 @@ ulint* n_pages_recovery
 
 		/* search the same space offset in hash table */
 		flash_cache_hash_mutex_enter(space,offset);		
-		HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+		HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
 			buf_page_address_fold(space,offset),
 			trx_flashcache_block_t*,b,
 			ut_ad(1),
@@ -394,19 +394,19 @@ ulint* n_pages_recovery
 			//flash_cache_hash_mutex_enter(space,offset);
 			b->used = 0;
 			/* delete info in hash table */
-			HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+			HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 				buf_page_address_fold(b->space, b->offset),
 				b);
 		}
 		//flash_cache_hash_mutex_exit(space,offset);
 
 		/* insert to hash table */
-		b =  &trx_doublewrite->block[f_offset+j];
+		b =  &trx_doublewrite->fc->block[f_offset+j];
 		//flash_cache_hash_mutex_enter(space,offset);
 		b->space = space;
 		b->offset = offset;
 		b->used = 1;
-		HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+		HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 			buf_page_address_fold(b->space, b->offset),
 			b);
 		flash_cache_hash_mutex_exit(space,offset);

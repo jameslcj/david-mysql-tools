@@ -4941,16 +4941,16 @@ flash_cache_warmup_tablespace(
 			return TRUE;
 		}
 
-		if ( trx_doublewrite->write_round == trx_doublewrite->flush_round ){
-			n_pages = trx_doublewrite->fc_size - ( trx_doublewrite->write_off - trx_doublewrite->flush_off ) ;
+		if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
+			n_pages = trx_doublewrite->fc->fc_size - ( trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off ) ;
 		}
 		else{
-			ut_a(trx_doublewrite->write_round = trx_doublewrite->flush_round+1);
-			n_pages = trx_doublewrite->flush_off - trx_doublewrite->write_off;
+			ut_a(trx_doublewrite->fc->write_round = trx_doublewrite->fc->flush_round+1);
+			n_pages = trx_doublewrite->fc->flush_off - trx_doublewrite->fc->write_off;
 		}
 
 		/* start write offset */
-		write_off = trx_doublewrite->write_off;
+		write_off = trx_doublewrite->fc->write_off;
 		/* get file size */
 		os_file_get_size(file,&size,&size_high);
 		/* malloc memory for page to read */
@@ -4978,7 +4978,7 @@ flash_cache_warmup_tablespace(
 				offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
 				ut_ad( mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) == space_id );
 				flash_cache_hash_mutex_enter(space_id,offset);		
-				HASH_SEARCH(hash,trx_doublewrite->fc_hash,
+				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(space_id,offset),
 					trx_flashcache_block_t*,b,
 					ut_ad(1),
@@ -5008,12 +5008,12 @@ flash_cache_warmup_tablespace(
 					continue;
 				}
 				else{
-					b = &trx_doublewrite->block[(trx_doublewrite->write_off)%trx_doublewrite->fc_size];
+					b = &trx_doublewrite->fc->block[(trx_doublewrite->fc->write_off)%trx_doublewrite->fc->fc_size];
 					ut_a( b->used == 0 );
 					b->space = space_id;
 					b->offset = offset;
 					b->used = 1;
-					HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc_hash,
+					HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 						buf_page_address_fold(b->space, b->offset),
 						b);
 					success = fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,page,NULL);	
@@ -5025,11 +5025,11 @@ flash_cache_warmup_tablespace(
 					}
 				}
 				flash_cache_hash_mutex_exit(space_id,offset);
-				trx_doublewrite->write_off = (trx_doublewrite->write_off + 1)%trx_doublewrite->fc_size;
-				trx_doublewrite->flush_off = (trx_doublewrite->flush_off + 1)%trx_doublewrite->fc_size;
+				trx_doublewrite->fc->write_off = (trx_doublewrite->fc->write_off + 1)%trx_doublewrite->fc->fc_size;
+				trx_doublewrite->fc->flush_off = (trx_doublewrite->fc->flush_off + 1)%trx_doublewrite->fc->fc_size;
 				srv_flash_cache_write++;
 				srv_flash_cache_flush++;
-				if ( trx_doublewrite->write_off == 0 ){
+				if ( trx_doublewrite->fc->write_off == 0 ){
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"  InnoDB: warm up table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
 					ut_print_timestamp(stderr);

@@ -3270,7 +3270,7 @@ srv_flash_cache_thread(
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
-		write_off = trx_doublewrite->write_off;
+		write_off = trx_doublewrite->fc->write_off;
 		old_activity_count = srv_activity_count;
 
 		for ( i = 0; i < 30; i++ ){
@@ -3306,7 +3306,7 @@ srv_flash_cache_thread(
 		}
 		//if ( count == 30 ){
 		//	/* if there is no activity in 30 second, we flush as many page as we can */
-		//	while ( write_off == trx_doublewrite->write_off ){
+		//	while ( write_off == trx_doublewrite->fc->write_off ){
 		//		if ( buf_flush_flash_cache_page(TRUE) == 0 )
 		//			break;
 		//	}
@@ -3318,8 +3318,8 @@ srv_flash_cache_thread(
 	while ( 1 ){
 		/* This is only extra safety, the thread should exit
 		already when the event wait ends */
-		if ( trx_doublewrite->flush_off == trx_doublewrite->write_off 
-			&& trx_doublewrite->flush_round == trx_doublewrite->write_round ){
+		if ( trx_doublewrite->fc->flush_off == trx_doublewrite->fc->write_off 
+			&& trx_doublewrite->fc->flush_round == trx_doublewrite->fc->write_round ){
 			
 			mutex_enter(&kernel_mutex);
 
