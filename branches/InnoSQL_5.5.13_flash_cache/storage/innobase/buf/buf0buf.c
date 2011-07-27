@@ -5148,7 +5148,7 @@ buf_print_io(
 						"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
 						"flash cache reads %lu, writes %lu, flush %lu(%lu)\n"
 						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
-						(ulong)trx_doublewrite->fc->fc_size,
+						(ulong)trx_doublewrite->fc->write_cache_size,
 						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->fc->write_off,
 						(ulong)trx_doublewrite->fc->write_round,

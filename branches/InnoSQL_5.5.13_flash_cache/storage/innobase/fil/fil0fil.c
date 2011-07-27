@@ -4942,7 +4942,7 @@ flash_cache_warmup_tablespace(
 		}
 
 		if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
-			n_pages = trx_doublewrite->fc->fc_size - ( trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off ) ;
+			n_pages = trx_doublewrite->fc->write_cache_size - ( trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off ) ;
 		}
 		else{
 			ut_a(trx_doublewrite->fc->write_round = trx_doublewrite->fc->flush_round+1);
@@ -5008,7 +5008,7 @@ flash_cache_warmup_tablespace(
 					continue;
 				}
 				else{
-					b = &trx_doublewrite->fc->block[(trx_doublewrite->fc->write_off)%trx_doublewrite->fc->fc_size];
+					b = &trx_doublewrite->fc->block[(trx_doublewrite->fc->write_off)%trx_doublewrite->fc->write_cache_size];
 					ut_a( b->used == 0 );
 					b->space = space_id;
 					b->offset = offset;
@@ -5025,8 +5025,8 @@ flash_cache_warmup_tablespace(
 					}
 				}
 				flash_cache_hash_mutex_exit(space_id,offset);
-				trx_doublewrite->fc->write_off = (trx_doublewrite->fc->write_off + 1)%trx_doublewrite->fc->fc_size;
-				trx_doublewrite->fc->flush_off = (trx_doublewrite->fc->flush_off + 1)%trx_doublewrite->fc->fc_size;
+				trx_doublewrite->fc->write_off = (trx_doublewrite->fc->write_off + 1)%trx_doublewrite->fc->write_cache_size;
+				trx_doublewrite->fc->flush_off = (trx_doublewrite->fc->flush_off + 1)%trx_doublewrite->fc->write_cache_size;
 				srv_flash_cache_write++;
 				srv_flash_cache_flush++;
 				if ( trx_doublewrite->fc->write_off == 0 ){
