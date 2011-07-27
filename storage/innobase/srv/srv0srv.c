@@ -88,6 +88,7 @@ Created 10/8/1995 Heikki Tuuri
 
 
 UNIV_INTERN ulint	srv_flash_cache_size = 0;
+UNIV_INTERN ulint	srv_flash_read_cache_size = 0;
 UNIV_INTERN char*	srv_flash_cache_file = NULL;
 UNIV_INTERN char*	srv_flash_cache_warmup_table = NULL;
 UNIV_INTERN ulint	srv_flash_cache_read = 0;
@@ -100,6 +101,7 @@ UNIV_INTERN const char srv_flash_cache_log_file_name[16] = "flash_cache.log";
 UNIV_INTERN ulint	srv_flash_cache_pages_per_read = 512;
 UNIV_INTERN ulint	srv_flash_cache_write_cache_pct = 10;
 UNIV_INTERN ulint	srv_flash_cache_do_full_io_pct = 30;
+UNIV_INTERN ulint	srv_flash_read_cache_page = 512;
 
 UNIV_INTERN my_bool	srv_flash_cache_use_log = TRUE;
 

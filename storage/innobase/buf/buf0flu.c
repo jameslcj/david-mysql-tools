@@ -729,7 +729,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				(ulong)buf_block_get_state(block));
 		}
 
-		off = (start_off + i) % trx_doublewrite->fc->fc_size;
+		off = (start_off + i) % trx_doublewrite->fc->write_cache_size;
 			
 		b = &trx_doublewrite->fc->block[off];
 
@@ -973,7 +973,7 @@ flush:
 retry:
 		if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
 			/* in the same round */
-			if ( trx_doublewrite->fc->write_off + trx_doublewrite->first_free < trx_doublewrite->fc->fc_size ){
+			if ( trx_doublewrite->fc->write_off + trx_doublewrite->first_free < trx_doublewrite->fc->write_cache_size ){
 				buf_flu_sync_flash_cache_hash_table(start_off,1);
 				/* we have space to cache the page write */
 				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
@@ -981,7 +981,7 @@ retry:
 					   (void*) trx_doublewrite->write_buf, NULL);
 				buf_flu_sync_flash_cache_hash_table(start_off,2);
 				trx_doublewrite->fc->write_off = trx_doublewrite->fc->write_off +  trx_doublewrite->first_free;
-				if ( trx_doublewrite->fc->write_off == trx_doublewrite->fc->fc_size ){
+				if ( trx_doublewrite->fc->write_off == trx_doublewrite->fc->write_cache_size ){
 					trx_doublewrite->fc->write_off = 0;
 					trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
 				}
@@ -990,7 +990,7 @@ retry:
 				ulint len1;
 				ulint len2;
 
-				len1 = trx_doublewrite->fc->fc_size - trx_doublewrite->fc->write_off;
+				len1 = trx_doublewrite->fc->write_cache_size - trx_doublewrite->fc->write_off;
 				len2 = trx_doublewrite->first_free - len1;
 
 retry1:
@@ -2392,7 +2392,7 @@ buf_flush_flash_cache_validate(){
 	ulint offset;
 
 	flash_cache_mutex_enter();;
-	for(i=0; i<trx_doublewrite->fc->fc_size; i++){
+	for(i=0; i<trx_doublewrite->fc->write_cache_size; i++){
 		b = &trx_doublewrite->fc->block[i];
 
 		flash_cache_hash_mutex_enter(b->space,b->offset);
@@ -2456,12 +2456,12 @@ ibool is_shutdown
 				return (0);
 			}
 		}
-		if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_write_cache_pct/100 )*trx_doublewrite->fc->fc_size
+		if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_write_cache_pct/100 )*trx_doublewrite->fc->write_cache_size
 				&& !is_shutdown){
 			flash_cache_mutex_exit();
 			return (0);
 		}
-		else if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_do_full_io_pct/100 )*trx_doublewrite->fc->fc_size
+		else if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_do_full_io_pct/100 )*trx_doublewrite->fc->write_cache_size
 				&& !is_shutdown){
 			//if ( srv_adaptive_flushing ){
 			//	n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
@@ -2477,18 +2477,18 @@ ibool is_shutdown
 		}
 	}
 	else{
-		if ( trx_doublewrite->fc->flush_off + srv_io_capacity <= trx_doublewrite->fc->fc_size ) {
+		if ( trx_doublewrite->fc->flush_off + srv_io_capacity <= trx_doublewrite->fc->write_cache_size ) {
 			n_flush = srv_io_capacity;
 		}
 		else{
-			n_flush = trx_doublewrite->fc->fc_size - trx_doublewrite->fc->flush_off;
+			n_flush = trx_doublewrite->fc->write_cache_size - trx_doublewrite->fc->flush_off;
 		}
-		if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_write_cache_pct/100 )*trx_doublewrite->fc->fc_size
+		if ( (trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off) < ( 1.0*srv_flash_cache_write_cache_pct/100 )*trx_doublewrite->fc->write_cache_size
 				&& !is_shutdown){
 			flash_cache_mutex_exit();
 			return (0);
 		}
-		else if ( (trx_doublewrite->fc->flush_off - trx_doublewrite->fc->write_off)  < ( 1.0*srv_flash_cache_do_full_io_pct/100 )*trx_doublewrite->fc->fc_size
+		else if ( (trx_doublewrite->fc->flush_off - trx_doublewrite->fc->write_off)  < ( 1.0*srv_flash_cache_do_full_io_pct/100 )*trx_doublewrite->fc->write_cache_size
 				&& !is_shutdown){
 			//if ( srv_adaptive_flushing ){
 			//	n_flush = ut_min(n_flush,buf_flush_get_desired_flush_rate());
@@ -2578,7 +2578,7 @@ ibool is_shutdown
 	buf_flush_sync_datafiles();
 
 	flash_cache_mutex_enter();
-	if ( trx_doublewrite->fc->flush_off + n_flush == trx_doublewrite->fc->fc_size ){
+	if ( trx_doublewrite->fc->flush_off + n_flush == trx_doublewrite->fc->write_cache_size ){
 		trx_doublewrite->fc->flush_off = 0;
 		trx_doublewrite->fc->flush_round++;
 	}

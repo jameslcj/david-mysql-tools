@@ -49,6 +49,7 @@ Created 10/10/1995 Heikki Tuuri
 #include "trx0types.h"
 
 extern ulint	srv_flash_cache_size;
+extern ulint	srv_flash_read_cache_size;
 extern char*	srv_flash_cache_file;
 extern char*	srv_flash_cache_warmup_table;
 /** Flash cache status variables */
@@ -59,6 +60,7 @@ extern ulint	srv_flash_cache_merge_write;
 extern ulint	srv_flash_cache_pages_per_read;
 extern ulint	srv_flash_cache_write_cache_pct;
 extern ulint	srv_flash_cache_do_full_io_pct;
+extern ulint	srv_flash_read_cache_page;
 
 extern my_bool	srv_flash_cache_use_log;
 

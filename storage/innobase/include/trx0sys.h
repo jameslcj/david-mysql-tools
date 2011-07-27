@@ -602,6 +602,7 @@ struct trx_flashcache_struct{
 	hash_table_t*	fc_hash;
 					/*!< hash table of flash cache pages */
 	ulint			fc_size; /*!< flash cache size */
+	ulint			write_cache_size;
 	ulint			write_off; /*!< write to flash cache offset */
 	ulint			flush_off; /*!< flush to disk this offset */
 	ulint			write_round; /* write round */
@@ -609,6 +610,13 @@ struct trx_flashcache_struct{
 	trx_flashcache_block_t* block; /* flash cache block */
 	byte*			read_buf_unalign; /* unalign read buf */
 	byte*			read_buf;	/* read buf */
+	/** Flash read cache struct */
+	byte*			read_cache_buf_unaligned;/* unaligned read cache buffer */
+	byte*			read_cache_buf;/* read cache buffer */
+	ulint			read_cache_size;
+	ulint			read_cache_pos;
+	ulint			read_cache_start_pos;
+	trx_flashcache_block_t* rc_block;
 };
 
 /** Doublewrite control struct */

@@ -96,6 +96,7 @@ extern "C" {
 # endif /* MYSQL_PLUGIN_IMPORT */
 
 static long long innobase_flash_cache_size;
+static long long innobase_flash_read_cache_size;
 
 /** to protect innobase_open_files */
 static mysql_mutex_t innobase_share_mutex;
@@ -2427,6 +2428,7 @@ innobase_change_buffering_inited_ok:
 
 	if ( innobase_flash_cache_size > 0 ){
 		srv_flash_cache_size = (ulint) innobase_flash_cache_size;
+		srv_flash_read_cache_size = (ulint) innobase_flash_read_cache_size;
 	}
 
 	srv_file_flush_method_str = innobase_file_flush_method;
@@ -11330,16 +11332,15 @@ static MYSQL_SYSVAR_STR(flash_cache_warmup_table, srv_flash_cache_warmup_table,
   "Flash cache warm up.",
   NULL, NULL, NULL);
 
-//static MYSQL_SYSVAR_ULONG(flash_cache_size, srv_flash_cache_size,
-//  PLUGIN_VAR_READONLY,
-//  "Flash cache file size",
-//  NULL, NULL, 0, 0, ULONG_MAX, 0);
-
 static MYSQL_SYSVAR_LONGLONG(flash_cache_size, innobase_flash_cache_size,
   PLUGIN_VAR_READONLY,
   "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
   NULL, NULL, 0, 0, LONGLONG_MAX, 0);
 
+static MYSQL_SYSVAR_LONGLONG(flash_read_cache_size, innobase_flash_read_cache_size,
+  PLUGIN_VAR_READONLY,
+  "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
+  NULL, NULL, 0, 0, LONGLONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
   PLUGIN_VAR_READONLY,

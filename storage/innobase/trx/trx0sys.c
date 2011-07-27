@@ -184,35 +184,36 @@ trx_flash_cache_init(
 
 	trx_doublewrite->fc->write_off = 0;
 	trx_doublewrite->fc->flush_off = 0;
-	trx_doublewrite->fc->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; /* first page using as flash cache header */
+	trx_doublewrite->fc->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; 
+	trx_doublewrite->fc->read_cache_size = srv_flash_read_cache_size >> UNIV_PAGE_SIZE_SHIFT;
+	trx_doublewrite->fc->write_cache_size = trx_doublewrite->fc->fc_size - trx_doublewrite->fc->read_cache_size;
 #ifdef UNIV_SYNC_DEBUG
-	trx_doublewrite->fc->fc_hash = ha_create(2 * trx_doublewrite->fc->fc_size,4,0);
+	trx_doublewrite->fc->fc_hash = ha_create(2 * trx_doublewrite->fc->write_cache_size,4,0);
 #else
-	trx_doublewrite->fc->fc_hash = ha_create(2 * trx_doublewrite->fc->fc_size,1,0);
+	trx_doublewrite->fc->fc_hash = ha_create(2 * trx_doublewrite->fc->write_cache_size,1,0);
 #endif
 	trx_doublewrite->fc->write_round = 0;
 	trx_doublewrite->fc->flush_round = 0;
-	trx_doublewrite->fc->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
 	trx_doublewrite->fc->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
 	trx_doublewrite->fc->read_buf = ut_align(trx_doublewrite->fc->read_buf_unalign,UNIV_PAGE_SIZE);
 
 	mutex_create(PFS_NOT_INSTRUMENTED,
 		&trx_doublewrite->fc->fc_mutex, SYNC_DOUBLEWRITE);
 	
-	//success = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
-	//if ( !success ){
-	//	fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
-	//	ut_error;
-	//}
 
-	//fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+	if ( trx_doublewrite->fc->read_cache_size > 0 ){
+		trx_doublewrite->fc->read_cache_start_pos = trx_doublewrite->fc->write_cache_size;
+		trx_doublewrite->fc->read_cache_pos =  trx_doublewrite->fc->write_cache_size;
+		trx_doublewrite->fc->read_cache_buf_unaligned = (byte*)ut_malloc((srv_flash_read_cache_page+1)*UNIV_PAGE_SIZE);
+		trx_doublewrite->fc->read_cache_buf = (byte*)ut_align(trx_doublewrite->fc->read_cache_buf_unaligned,UNIV_PAGE_SIZE);
+	}
 
+	trx_doublewrite->fc->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
 	for(i=0;i<trx_doublewrite->fc->fc_size;i++){
 		trx_doublewrite->fc->block[i].fil_offset = i;
 		trx_doublewrite->fc->block[i].space = 0;
 		trx_doublewrite->fc->block[i].offset = 0;
 		trx_doublewrite->fc->block[i].used = 0;
-
 	}
 }
 
