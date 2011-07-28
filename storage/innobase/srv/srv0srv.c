@@ -96,6 +96,10 @@ UNIV_INTERN ulint	srv_flash_cache_write = 0;
 UNIV_INTERN ulint	srv_flash_cache_flush = 0;
 UNIV_INTERN ulint	srv_flash_cache_merge_write = 0;
 UNIV_INTERN FILE*	srv_flash_cache_log_file;
+UNIV_INTERN ulint	srv_flash_cache_read_detail[FIL_PAGE_TYPE_ZBLOB2+1];
+UNIV_INTERN ulint	srv_flash_cache_write_detail[FIL_PAGE_TYPE_ZBLOB2+1];
+UNIV_INTERN ulint	srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_ZBLOB2+1];
+
 UNIV_INTERN const char srv_flash_cache_log_file_name[16] = "flash_cache.log";
 
 UNIV_INTERN ulint	srv_flash_cache_pages_per_read = 512;

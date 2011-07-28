@@ -2300,4 +2300,19 @@ buf_LRU_print(void)
 		buf_LRU_print_instance(buf_pool);
 	}
 }
+
+/**********************************************************************//**
+Prints the LRU list. */
+UNIV_INTERN
+void
+buf_LRU_move_to_flash_read_cache(
+/*===============*/
+buf_page_t* bpage)
+{
+	const page_t*	page = ((buf_block_t*) bpage)->frame;
+	if ( fil_page_get_type(page) != FIL_PAGE_INDEX
+		&& fil_page_get_type(page) != FIL_PAGE_INODE ){
+			return;
+	}
+}
 #endif /* UNIV_DEBUG_PRINT || UNIV_DEBUG || UNIV_BUF_DEBUG */

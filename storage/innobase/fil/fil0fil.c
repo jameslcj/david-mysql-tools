@@ -5009,10 +5009,10 @@ flash_cache_warmup_tablespace(
 				}
 				else{
 					b = &trx_doublewrite->fc->block[(trx_doublewrite->fc->write_off)%trx_doublewrite->fc->write_cache_size];
-					ut_a( b->used == 0 );
+					ut_a( b->state == BLOCK_NOT_USED );
 					b->space = space_id;
 					b->offset = offset;
-					b->used = 1;
+					b->state = BLOCK_READ_CACHE;
 					HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 						buf_page_address_fold(b->space, b->offset),
 						b);
