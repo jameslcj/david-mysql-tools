@@ -2854,9 +2854,7 @@ recv_init_crash_recovery(void)
 		"InnoDB: Reading tablespace information"
 		" from the .ibd files...\n");
 
-	if ( srv_flash_cache_size == 0 ){
-		fil_load_single_table_tablespaces();
-	}
+	fil_load_single_table_tablespaces();
 
 	/* If we are using the doublewrite method, we will
 	check if there are half-written pages in data files,

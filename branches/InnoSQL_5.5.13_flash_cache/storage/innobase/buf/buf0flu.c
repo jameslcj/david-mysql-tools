@@ -697,6 +697,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 	ulint off;
 	trx_flashcache_block_t* b;
 	trx_flashcache_block_t* b2;
+	ulint page_type;
 #ifdef UNIV_DEBUG
 	byte _page[16384];
 #endif
@@ -736,12 +737,12 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 		flash_cache_hash_mutex_enter(b->space,b->offset);
 
 		if ( stage == 1 ){
-			if ( b->used ){
+			if ( b->state ){
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(b->space, b->offset),
 					b);
-				b->used = 0;
+				b->state = BLOCK_NOT_USED;
 			}
 		}
 		else{
@@ -756,10 +757,14 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 			ut_ad( _offset == block->page.offset );
 			ut_ad( _space == block->page.space );
 #endif
-
+			page_type = fil_page_get_type(block->frame);
+			if ( page_type == FIL_PAGE_INDEX ){
+				page_type = 1;
+			}
+			srv_flash_cache_write_detail[page_type]++;
 			b->space = block->page.space;
 			b->offset = block->page.offset;
-			b->used = 1;
+			b->state = BLOCK_READY_FOR_FLUSH;
 
 			/* search the same space offset in hash table */
 			HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
@@ -769,7 +774,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				block->page.space == b2->space && block->page.offset == b2->offset);
 
 			if ( b2 ){
-				b2->used = 0;
+				b2->state = BLOCK_NOT_USED;
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(b2->space, b2->offset),
@@ -2396,7 +2401,7 @@ buf_flush_flash_cache_validate(){
 		b = &trx_doublewrite->fc->block[i];
 
 		flash_cache_hash_mutex_enter(b->space,b->offset);
-		if ( b->used ){
+		if ( b->state == BLOCK_READY_FOR_FLUSH ){
 			HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
 				buf_page_address_fold(b->space,b->offset),
 				trx_flashcache_block_t*,b2,
@@ -2428,13 +2433,14 @@ buf_flush_flash_cache_page(
 /*===================*/
 ibool is_shutdown
 ){
-	ulint n_flush;
+	ulint n_flush = 0;
 	ulint ret;
 	ulint i;
 	byte* page;
 	ulint space;
 	ulint offset;
 	ulint start_offset = trx_doublewrite->fc->flush_off;
+	ulint page_type;
 #ifdef UNIV_DEBUG
 	ulint lsn;
 	ulint lsn2;
@@ -2528,8 +2534,42 @@ ibool is_shutdown
 	}
 
 	for(i = 0; i < n_flush; i++){
-
 		page = trx_doublewrite->fc->read_buf + i*UNIV_PAGE_SIZE;
+		page_type = fil_page_get_type(page);
+		if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED
+			|| trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
+			/* if readonly or merge write */
+#ifdef UNIV_DEBUG
+			ulint _space;
+			ulint _offset;
+			byte* _page;
+			trx_flashcache_block_t* b;
+
+			if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED ) {
+				_page = trx_doublewrite->fc->read_buf + i*UNIV_PAGE_SIZE;
+				_space = mach_read_from_4(_page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+				_offset = mach_read_from_4(_page+FIL_PAGE_OFFSET);
+
+				flash_cache_hash_mutex_enter(_space,_offset);
+				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
+					buf_page_address_fold(_space,_offset),
+					trx_flashcache_block_t*,b,
+					ut_ad(1),
+					_space == b->space && _offset == b->offset);
+				ut_ad(b);
+				ut_ad(trx_doublewrite->fc->block[b->fil_offset].state != BLOCK_NOT_USED );
+				ut_ad(trx_doublewrite->fc->block[b->fil_offset].space == _space );
+				ut_ad(trx_doublewrite->fc->block[b->fil_offset].offset == _offset );
+				flash_cache_hash_mutex_exit(_space,_offset);
+			}
+#endif
+			if ( page_type == FIL_PAGE_INDEX ){
+				page_type = 1;
+			}
+			srv_flash_cache_merge_write_detail[page_type]++;
+			srv_flash_cache_merge_write++;
+			continue;
+		}
 		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
 #ifdef UNIV_DEBUG
@@ -2553,26 +2593,7 @@ ibool is_shutdown
 			ut_ad( offset == offset2 );
 		}
 #endif
-		if ( trx_doublewrite->fc->block[start_offset+i].used ){
-			fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
-			srv_flash_cache_merge_write++;
-		}
-#ifdef UNIV_DEBUG
-		else{
-			trx_flashcache_block_t* b;
-			flash_cache_hash_mutex_enter(space,offset);
-			HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
-				buf_page_address_fold(space,offset),
-				trx_flashcache_block_t*,b,
-				ut_ad(1),
-				space == b->space && offset == b->offset);
-			flash_cache_hash_mutex_exit(space,offset);
-			ut_ad(b);
-			ut_ad(trx_doublewrite->fc->block[b->fil_offset].used);
-			ut_ad(trx_doublewrite->fc->block[b->fil_offset].space == space);
-			ut_ad(trx_doublewrite->fc->block[b->fil_offset].offset == offset);
-		}
-#endif
+		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 	}
 
 	buf_flush_sync_datafiles();

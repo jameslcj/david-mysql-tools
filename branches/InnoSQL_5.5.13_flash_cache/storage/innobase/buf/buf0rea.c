@@ -160,16 +160,22 @@ buf_read_page_low(
 				ut_ad(1),
 				space == b->space && offset == b->offset);
 			if ( b ){
+				ulint page_type;
 #ifdef UNIV_DEBUG
 				ulint _offset;
 				ulint _space;
 #endif
-				ut_ad(b->used);
+				ut_ad( b->state != BLOCK_NOT_USED );
 				*err = fil_io(OS_FILE_READ | wake_later,
 					sync, FLASH_CACHE_SPACE, 0, b->fil_offset, 0, UNIV_PAGE_SIZE,
 					((buf_block_t*) bpage)->frame, bpage);
 				flash_cache_hash_mutex_exit(space,offset);		
 				srv_flash_cache_read++;
+				page_type = fil_page_get_type(((buf_block_t*)bpage)->frame);
+				if ( page_type == FIL_PAGE_INDEX ){
+					page_type = 1;
+				}
+				srv_flash_cache_read_detail[page_type]++;
 
 #ifdef UNIV_DEBUG
 				if ( sync ){

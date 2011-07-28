@@ -586,13 +586,18 @@ identifier is added to this 64-bit constant. */
 	hash_mutex_exit(trx_doublewrite->fc->fc_hash,buf_page_address_fold(space,offset));\
 }while(0)
 
+enum flash_cache_block_state{
+	BLOCK_NOT_USED,
+	BLOCK_READY_FOR_FLUSH,
+	BLOCK_READ_CACHE
+};
 
 /** Flash cache block strunct */
 struct trx_flashcache_block_struct{
 	unsigned	space:32;	/*!< tablespace id */
 	unsigned	offset:32;	/*!< page number */
 	unsigned	fil_offset:32;	/*!< flash cache page number */
-	unsigned	used:1;			/*!< whether it is used */
+	unsigned	state:2;			/*!< whether it is used */
 	trx_flashcache_block_t* hash;	/*!< hash chain */
 };
 

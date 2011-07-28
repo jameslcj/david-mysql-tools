@@ -61,6 +61,9 @@ extern ulint	srv_flash_cache_pages_per_read;
 extern ulint	srv_flash_cache_write_cache_pct;
 extern ulint	srv_flash_cache_do_full_io_pct;
 extern ulint	srv_flash_read_cache_page;
+extern ulint	srv_flash_cache_read_detail[13];
+extern ulint	srv_flash_cache_write_detail[13];
+extern ulint	srv_flash_cache_merge_write_detail[13];
 
 extern my_bool	srv_flash_cache_use_log;
 

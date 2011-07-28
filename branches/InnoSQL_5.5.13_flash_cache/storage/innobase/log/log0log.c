@@ -392,7 +392,7 @@ ulint* n_pages_recovery
 			}
 #endif
 			//flash_cache_hash_mutex_enter(space,offset);
-			b->used = 0;
+			b->state = BLOCK_NOT_USED;
 			/* delete info in hash table */
 			HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 				buf_page_address_fold(b->space, b->offset),
@@ -405,7 +405,7 @@ ulint* n_pages_recovery
 		//flash_cache_hash_mutex_enter(space,offset);
 		b->space = space;
 		b->offset = offset;
-		b->used = 1;
+		b->state = BLOCK_READY_FOR_FLUSH;
 		HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 			buf_page_address_fold(b->space, b->offset),
 			b);
