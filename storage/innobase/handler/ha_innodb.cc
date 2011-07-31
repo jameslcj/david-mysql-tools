@@ -11350,12 +11350,12 @@ static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
 static MYSQL_SYSVAR_ULONG(flash_cache_write_cache_pct, srv_flash_cache_write_cache_pct,
   PLUGIN_VAR_READONLY,
   "Flash cache write cache percentage",
-  NULL, NULL, 10, 0, 50, 0);
+  NULL, NULL, 10L, 0, 50L, 0);
 
 static MYSQL_SYSVAR_ULONG(flash_cache_do_full_io_pct, srv_flash_cache_do_full_io_pct,
   PLUGIN_VAR_READONLY,
   "Flash cache write cache percentage",
-  NULL, NULL, 70, 0, 90, 0);
+  NULL, NULL, 70L, 0, 90L, 0);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(flash_cache_write_cache_pct),

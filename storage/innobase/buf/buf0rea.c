@@ -171,11 +171,6 @@ buf_read_page_low(
 					((buf_block_t*) bpage)->frame, bpage);
 				flash_cache_hash_mutex_exit(space,offset);		
 				srv_flash_cache_read++;
-				page_type = fil_page_get_type(((buf_block_t*)bpage)->frame);
-				if ( page_type == FIL_PAGE_INDEX ){
-					page_type = 1;
-				}
-				srv_flash_cache_read_detail[page_type]++;
 
 #ifdef UNIV_DEBUG
 				if ( sync ){
