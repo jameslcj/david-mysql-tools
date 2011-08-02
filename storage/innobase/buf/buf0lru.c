@@ -148,6 +148,13 @@ buf_LRU_block_free_hashed_page(
 /*===========================*/
 	buf_block_t*	block);	/*!< in: block, must contain a file page and
 				be in a state where it can be freed */
+/**********************************************************************//**
+Move to flash cache if possible */
+static
+void
+buf_LRU_move_to_flash_read_cache(
+/*===============*/
+buf_page_t* bpage);
 
 /******************************************************************//**
 Determines if the unzip_LRU list should be used for evicting a victim
@@ -2340,7 +2347,7 @@ buf_page_t* bpage /*!< frame to be written */
 
 }
 
-UNIV_INTERN
+static
 ibool
 buf_LRU_is_flash_cache_migrate_avaliable(){
 	if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
@@ -2356,7 +2363,7 @@ buf_LRU_is_flash_cache_migrate_avaliable(){
 
 /**********************************************************************//**
 Move to flash cache if possible */
-UNIV_INTERN
+static
 void
 buf_LRU_move_to_flash_read_cache(
 /*===============*/
