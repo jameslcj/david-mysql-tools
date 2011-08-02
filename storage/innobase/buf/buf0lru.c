@@ -2269,7 +2269,6 @@ buf_LRU_is_flash_cache_migrate_avaliable(){
 /**********************************************************************//**
 Move to flash cache if possible */
 UNIV_INTERN
-static
 void
 buf_LRU_move_to_flash_read_cache(
 /*===============*/
