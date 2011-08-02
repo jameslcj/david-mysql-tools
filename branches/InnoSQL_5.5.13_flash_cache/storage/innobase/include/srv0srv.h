@@ -61,12 +61,14 @@ extern ulint	srv_flash_cache_migrate;
 extern ulint	srv_flash_cache_pages_per_read;
 extern ulong	srv_flash_cache_write_cache_pct;
 extern ulong	srv_flash_cache_do_full_io_pct;
+extern ulong	srv_flash_cache_migrate_pct;
 extern ulint	srv_flash_read_cache_page;
 extern ulint	srv_flash_cache_read_detail[13];
 extern ulint	srv_flash_cache_write_detail[13];
 extern ulint	srv_flash_cache_merge_write_detail[13];
 
 extern my_bool	srv_flash_cache_use_log;
+extern my_bool	srv_flash_cache_enable_migrate;
 
 extern FILE*	srv_flash_cache_log_file;
 extern const char*	srv_flash_cache_thread_op_info;
