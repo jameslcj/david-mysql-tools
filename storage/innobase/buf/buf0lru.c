@@ -148,13 +148,6 @@ buf_LRU_block_free_hashed_page(
 /*===========================*/
 	buf_block_t*	block);	/*!< in: block, must contain a file page and
 				be in a state where it can be freed */
-/**********************************************************************//**
-Move to flash cache if possible */
-static
-void
-buf_LRU_move_to_flash_read_cache(
-/*===============*/
-buf_page_t* bpage);
 
 /******************************************************************//**
 Determines if the unzip_LRU list should be used for evicting a victim
@@ -2226,6 +2219,94 @@ buf_LRU_validate(void)
 }
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
+/**********************************************************************//**
+Sync flash cache hash table from LRU remove page opreation */
+UNIV_INTERN
+void
+buf_LRU_flash_cache_sync_hash_table(
+/*==========================*/
+trx_flashcache_block_t* b, /*!< flash cache block to be removed */
+buf_page_t* bpage /*!< frame to be written */
+){
+	/* block to be written */
+	trx_flashcache_block_t* b2 = &trx_doublewrite->fc->block[trx_doublewrite->fc->write_off];
+
+	HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+		buf_page_address_fold(b->space, b->offset),
+		b);
+	b->state = BLOCK_NOT_USED;
+
+	if ( b2->state != BLOCK_NOT_USED ){
+		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+			buf_page_address_fold(b2->space, b2->offset),
+			b2);
+	}
+
+	b2->space = bpage->space;
+	b2->offset = bpage->offset;
+	b2->state = BLOCK_READ_CACHE;
+	/* insert to hash table */
+	HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+		buf_page_address_fold(bpage->space, bpage->offset),
+		b2);
+
+}
+
+UNIV_INTERN
+ibool
+buf_LRU_is_flash_cache_migrate_avaliable(){
+	if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
+		return TRUE;
+	}
+	else{
+		if ( trx_doublewrite->fc->write_off + 1 < trx_doublewrite->fc->flush_off ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/**********************************************************************//**
+Move to flash cache if possible */
+UNIV_INTERN
+static
+void
+buf_LRU_move_to_flash_read_cache(
+/*===============*/
+buf_page_t* bpage)
+{
+	trx_flashcache_block_t* b;
+	const page_t*	page = ((buf_block_t*) bpage)->frame;
+
+	if ( fil_page_get_type(page) != FIL_PAGE_INDEX
+		&& fil_page_get_type(page) != FIL_PAGE_INODE ){
+			return;
+	}
+
+	flash_cache_mutex_enter();
+	flash_cache_hash_mutex_enter(bpage->space,bpage->offset);	
+	/* search the same space offset in hash table */
+	HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
+		buf_page_address_fold(bpage->space,bpage->offset),
+		trx_flashcache_block_t*,b,
+		ut_ad(1),
+		bpage->space == b->space && bpage->offset == b->offset);
+
+	if ( b ){
+		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT
+				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
+			/* need to migrate */
+			buf_LRU_flash_cache_sync_hash_table(b,bpage);
+			fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
+			srv_flash_cache_migrate++;
+			trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
+			srv_flash_cache_write++;
+		}
+	}
+	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
+	flash_cache_mutex_exit();
+}
+
 #if defined UNIV_DEBUG_PRINT || defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 /**********************************************************************//**
 Prints the LRU list for one buffer pool instance. */
@@ -2314,90 +2395,5 @@ buf_LRU_print(void)
 	}
 }
 
-/**********************************************************************//**
-Sync flash cache hash table from LRU remove page opreation */
-UNIV_INTERN
-void
-buf_LRU_flash_cache_sync_hash_table(
-/*==========================*/
-trx_flashcache_block_t* b, /*!< flash cache block to be removed */
-buf_page_t* bpage /*!< frame to be written */
-){
-	/* block to be written */
-	trx_flashcache_block_t* b2 = &trx_doublewrite->fc->block[trx_doublewrite->fc->write_off];
 
-	HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
-		buf_page_address_fold(b->space, b->offset),
-		b);
-	b->state = BLOCK_NOT_USED;
-
-	if ( b2->state != BLOCK_NOT_USED ){
-		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
-			buf_page_address_fold(b2->space, b2->offset),
-			b2);
-	}
-
-	b2->space = bpage->space;
-	b2->offset = bpage->offset;
-	b2->state = BLOCK_READ_CACHE;
-	/* insert to hash table */
-	HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
-		buf_page_address_fold(bpage->space, bpage->offset),
-		b2);
-
-}
-
-static
-ibool
-buf_LRU_is_flash_cache_migrate_avaliable(){
-	if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
-		return TRUE;
-	}
-	else{
-		if ( trx_doublewrite->fc->write_off + 1 < trx_doublewrite->fc->flush_off ) {
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-/**********************************************************************//**
-Move to flash cache if possible */
-static
-void
-buf_LRU_move_to_flash_read_cache(
-/*===============*/
-buf_page_t* bpage)
-{
-	trx_flashcache_block_t* b;
-	const page_t*	page = ((buf_block_t*) bpage)->frame;
-
-	if ( fil_page_get_type(page) != FIL_PAGE_INDEX
-		&& fil_page_get_type(page) != FIL_PAGE_INODE ){
-			return;
-	}
-
-	flash_cache_mutex_enter();
-	flash_cache_hash_mutex_enter(bpage->space,bpage->offset);	
-	/* search the same space offset in hash table */
-	HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
-		buf_page_address_fold(bpage->space,bpage->offset),
-		trx_flashcache_block_t*,b,
-		ut_ad(1),
-		bpage->space == b->space && bpage->offset == b->offset);
-
-	if ( b ){
-		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT
-				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
-			/* need to migrate */
-			buf_LRU_flash_cache_sync_hash_table(b,bpage);
-			fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
-			srv_flash_cache_migrate++;
-			trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
-			srv_flash_cache_write++;
-		}
-	}
-	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
-	flash_cache_mutex_exit();
-}
 #endif /* UNIV_DEBUG_PRINT || UNIV_DEBUG || UNIV_BUF_DEBUG */

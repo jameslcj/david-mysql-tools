@@ -42,6 +42,14 @@ enum buf_lru_free_block_status {
 	BUF_LRU_NOT_FREED
 };
 
+/**********************************************************************//**
+Move to flash cache if possible */
+UNIV_INTERN
+void
+buf_LRU_move_to_flash_read_cache(
+/*===============*/
+buf_page_t* bpage);
+
 /******************************************************************//**
 Tries to remove LRU flushed blocks from the end of the LRU list and put them
 to the free list. This is beneficial for the efficiency of the insert buffer
