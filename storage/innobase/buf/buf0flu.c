@@ -793,9 +793,10 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 			ut_ad( _offset == block->page.offset );
 			ut_ad( _space == block->page.space );
 #endif
-			buf_page_io_complete(&block->page);	
+			//buf_page_io_complete(&block->page);	
 		}
 		flash_cache_hash_mutex_exit(b->space,b->offset);
+		
 	}
 }
 /********************************************************************//**
@@ -1047,6 +1048,10 @@ retry1:
 		fil_flush(FLASH_CACHE_SPACE);
 		flash_cache_log_commit();
 		flash_cache_mutex_exit();
+
+		for( i = 0; i < trx_doublewrite->first_free; i++ ){
+			buf_page_io_complete( &(((buf_block_t*) trx_doublewrite->buf_block_arr[i])->page) );	
+		}
 	}
 	else{
 		/* Now flush the doublewrite buffer data to disk */

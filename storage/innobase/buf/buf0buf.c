@@ -3967,15 +3967,6 @@ buf_page_io_complete(
 		ulint	read_page_no;
 		ulint	read_space_id;
 		byte*	frame;
-		ulint	page_type;
-
-		if ( srv_flash_cache_size > 0 ){
-			page_type = fil_page_get_type(((buf_block_t*)bpage)->frame);
-			if ( page_type == FIL_PAGE_INDEX ){
-				page_type = 1;
-			}
-			srv_flash_cache_read_detail[page_type]++;
-		}
 
 		if (buf_page_get_zip_size(bpage)) {
 			frame = bpage->zip.data;
@@ -5127,6 +5118,7 @@ buf_print_io(
 			buf_stats_aggregate_pool_info(pool_info_total,
 						      &pool_info[i]);
 		}
+
 	}
 
 	/* Print the aggreate buffer pool info */
@@ -5148,43 +5140,51 @@ buf_print_io(
 	if ( srv_flash_cache_size > 0 ){
 		
 		time_t cur_time = ut_time();
-
+		lint cdiff = trx_doublewrite->fc->write_off -  trx_doublewrite->fc->flush_off;
+		ulint fc_read_point = 0;
+		ulint z;
+		for( z=0; z<=FIL_PAGE_TYPE_ZBLOB2; z++){
+			fc_read_point = fc_read_point + srv_flash_cache_read_detail[z];
+		}
+		if ( cdiff < 0 ){
+			cdiff = cdiff + trx_doublewrite->fc->fc_size;
+		}
 		fputs("----------------------\n"
 		"FLASH CACHE INFO\n"
 		"----------------------\n", file);
-		fprintf(file,	"flash cache size: %lu write cache: %lu, read cache %lu\n"
+		fprintf(file,	"flash cache size: %lu \n"
 						"flash cache thread status: %s\n"
-						"flash cache location is: %lu(%lu), flush to %lu(%lu)\n"
+						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%)\n"
 						"flash cache reads %lu:, writes %lu, flush %lu(%lu), migrate %lu\n"
 						"FIL_PAGE_INDEX reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_INODE reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_UNDO_LOG reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_TYPE_SYS reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FILE_PAGE_OTHER reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"flash cache read hit raio %.2f%% in %lu second(%.2f%%)\n",
+						"FIL_PAGE_OTHER reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
+						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n",
 						(ulong)trx_doublewrite->fc->fc_size,
-						(ulong)trx_doublewrite->fc->write_cache_size,
-						(ulong)trx_doublewrite->fc->read_cache_size,
 						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->fc->write_off,
 						(ulong)trx_doublewrite->fc->write_round,
 						(ulong)trx_doublewrite->fc->flush_off,
 						(ulong)trx_doublewrite->fc->flush_round,
+						(ulong)cdiff,
+						(100.0*cdiff)/trx_doublewrite->fc->fc_size,
 						(ulong)srv_flash_cache_read,
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
 						(ulong)srv_flash_cache_merge_write,
 						(ulong)srv_flash_cache_migrate,
-						(ulong)srv_flash_cache_read_detail[1],(100.0*srv_flash_cache_read_detail[1])/(srv_flash_cache_read),
+						(ulong)srv_flash_cache_read_detail[1],(100.0*srv_flash_cache_read_detail[1])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[1],(ulong)srv_flash_cache_merge_write_detail[1],
-						(ulong)srv_flash_cache_read_detail[FIL_PAGE_INODE],(100.0*srv_flash_cache_read_detail[FIL_PAGE_INODE])/(srv_flash_cache_read),
+						(ulong)srv_flash_cache_read_detail[FIL_PAGE_INODE],(100.0*srv_flash_cache_read_detail[FIL_PAGE_INODE])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[FIL_PAGE_INODE],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_INODE],
-						(ulong)srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG],(100.0*srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG])/(srv_flash_cache_read),
+						(ulong)srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG],(100.0*srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[FIL_PAGE_UNDO_LOG],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_UNDO_LOG],
-						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS])/(srv_flash_cache_read),
+						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_SYS],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_SYS],
-						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS])/(srv_flash_cache_read),
+						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_TRX_SYS],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_TRX_SYS],
 						(ulong)(srv_flash_cache_read_detail[FIL_PAGE_IBUF_FREE_LIST] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_ALLOCATED]
 									+ srv_flash_cache_read_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_FSP_HDR]
@@ -5195,7 +5195,7 @@ buf_print_io(
 									+ srv_flash_cache_read_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_FSP_HDR]
 									+ srv_flash_cache_read_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_BLOB]
 									+ srv_flash_cache_read_detail[FIL_PAGE_TYPE_ZBLOB] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_ZBLOB2]
-								))/(srv_flash_cache_read),
+								))/(fc_read_point),
 						(ulong)(srv_flash_cache_write_detail[FIL_PAGE_IBUF_FREE_LIST] + srv_flash_cache_write_detail[FIL_PAGE_TYPE_ALLOCATED]
 									+ srv_flash_cache_write_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_write_detail[FIL_PAGE_TYPE_FSP_HDR]
 									+ srv_flash_cache_write_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_write_detail[FIL_PAGE_TYPE_BLOB]
@@ -5208,9 +5208,18 @@ buf_print_io(
 								),
 						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
 						(ulong)difftime(cur_time,flash_cache_stat.last_printout_time),
-						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/(srv_buf_pool_reads)
+						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/(srv_buf_pool_reads + pool_info->n_ra_pages_read ),
+						(100.0*srv_flash_cache_merge_write)/srv_flash_cache_write
 
 			);
+		flash_cache_stat.flush_off = trx_doublewrite->fc->flush_off;
+		flash_cache_stat.flush_round = trx_doublewrite->fc->flush_round;
+		flash_cache_stat.write_off = trx_doublewrite->fc->write_off;
+		flash_cache_stat.write_round = trx_doublewrite->fc->write_round;
+		flash_cache_stat.n_pages_write = srv_flash_cache_flush;
+		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
+		flash_cache_stat.n_pages_read = srv_flash_cache_read;
+		flash_cache_stat.last_printout_time = ut_time();
 	}
 
 	mem_free(pool_info);

@@ -172,8 +172,14 @@ buf_read_page_low(
 				flash_cache_hash_mutex_exit(space,offset);		
 				srv_flash_cache_read++;
 
-#ifdef UNIV_DEBUG
+
 				if ( sync ){
+					page_type = fil_page_get_type(((buf_block_t*)bpage)->frame);
+					if ( page_type == FIL_PAGE_INDEX ){
+						page_type = 1;
+					}
+					srv_flash_cache_read_detail[page_type]++;
+#ifdef UNIV_DEBUG
 					_offset = mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_OFFSET);
 					_space = mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 					if ( _offset != offset || _space != space ){
@@ -184,9 +190,8 @@ buf_read_page_low(
 						_space == b2->space && _offset == b2->offset);
 						ut_error;
 					}
-				}
 #endif
-
+				}
 			}
 			else{
 				flash_cache_hash_mutex_exit(space,offset);

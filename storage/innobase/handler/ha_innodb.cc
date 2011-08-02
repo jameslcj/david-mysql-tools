@@ -11339,10 +11339,15 @@ static MYSQL_SYSVAR_LONGLONG(flash_cache_size, innobase_flash_cache_size,
 
 static MYSQL_SYSVAR_LONGLONG(flash_read_cache_size, innobase_flash_read_cache_size,
   PLUGIN_VAR_READONLY,
-  "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
-  NULL, NULL, 0, 0, LONGLONG_MAX, 0);
+  "The size of the flash cahce InnoDB uses to cache data and indexes of its tables.",
+  NULL, NULL, 0L, 0L, LONGLONG_MAX, 1024*1024L);
 
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
+  PLUGIN_VAR_READONLY,
+  "Enable flash cache log",
+  NULL, NULL, TRUE);
+
+static MYSQL_SYSVAR_BOOL(flash_cache_enable_migrate, srv_flash_cache_enable_migrate,
   PLUGIN_VAR_READONLY,
   "Enable flash cache log",
   NULL, NULL, TRUE);
@@ -11357,9 +11362,16 @@ static MYSQL_SYSVAR_ULONG(flash_cache_do_full_io_pct, srv_flash_cache_do_full_io
   "Flash cache write cache percentage",
   NULL, NULL, 70L, 0, 90L, 0);
 
+static MYSQL_SYSVAR_ULONG(flash_cache_migrate_pct, srv_flash_cache_migrate_pct,
+  PLUGIN_VAR_READONLY,
+  "Flash cache write cache percentage",
+  NULL, NULL, 80L, 30L, 95L, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(flash_cache_enable_migrate),
   MYSQL_SYSVAR(flash_cache_write_cache_pct),
   MYSQL_SYSVAR(flash_cache_do_full_io_pct),
+  MYSQL_SYSVAR(flash_cache_migrate_pct),
   MYSQL_SYSVAR(flash_cache_enable_log),
   MYSQL_SYSVAR(flash_cache_file),
   MYSQL_SYSVAR(flash_cache_warmup_table),

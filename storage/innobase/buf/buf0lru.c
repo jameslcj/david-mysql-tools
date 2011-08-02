@@ -50,6 +50,8 @@ Created 11/5/1995 Heikki Tuuri
 #include "srv0srv.h"
 #include "trx0sys.h"
 
+#define FLASH_CACHE_MIGRATE_LIMIT (1.0*srv_flash_cache_migrate_pct*trx_doublewrite->fc->fc_size/100)
+
 /** The number of blocks from the LRU_old pointer onward, including
 the block pointed to, must be buf_pool->LRU_old_ratio/BUF_LRU_OLD_RATIO_DIV
 of the whole LRU list length, except that the tolerance defined below
@@ -1775,7 +1777,7 @@ buf_LRU_block_remove_hashed_page(
 
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_FILE_PAGE:
-		if ( srv_flash_cache_size > 0 && trx_doublewrite ){
+		if ( srv_flash_cache_size > 0 && trx_doublewrite && srv_flash_cache_enable_migrate ){
 			buf_LRU_move_to_flash_read_cache(bpage);
 		}
 		UNIV_MEM_ASSERT_W(bpage, sizeof(buf_block_t));
@@ -2338,6 +2340,20 @@ buf_page_t* bpage /*!< frame to be written */
 
 }
 
+UNIV_INTERN
+ibool
+buf_LRU_is_flash_cache_migrate_avaliable(){
+	if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
+		return TRUE;
+	}
+	else{
+		if ( trx_doublewrite->fc->write_off + 1 < trx_doublewrite->fc->flush_off ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 /**********************************************************************//**
 Move to flash cache if possible */
 UNIV_INTERN
@@ -2348,7 +2364,6 @@ buf_page_t* bpage)
 {
 	trx_flashcache_block_t* b;
 	const page_t*	page = ((buf_block_t*) bpage)->frame;
-	ulint diff = 0.3*trx_doublewrite->fc->fc_size;		
 
 	if ( fil_page_get_type(page) != FIL_PAGE_INDEX
 		&& fil_page_get_type(page) != FIL_PAGE_INODE ){
@@ -2356,7 +2371,7 @@ buf_page_t* bpage)
 	}
 
 	flash_cache_mutex_enter();
-	flash_cache_hash_mutex_enter(b->space,b->offset);	
+	flash_cache_hash_mutex_enter(bpage->space,bpage->offset);	
 	/* search the same space offset in hash table */
 	HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
 		buf_page_address_fold(bpage->space,bpage->offset),
@@ -2365,33 +2380,17 @@ buf_page_t* bpage)
 		bpage->space == b->space && bpage->offset == b->offset);
 
 	if ( b ){
-		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= diff ){
+		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT
+				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
 			/* need to migrate */
 			buf_LRU_flash_cache_sync_hash_table(b,bpage);
 			fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
 			srv_flash_cache_migrate++;
+			trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
+			srv_flash_cache_write++;
 		}
-		//if ( trx_doublewrite->fc->flush_round ==  trx_doublewrite->fc->write_round ){
-		//	if ( trx_doublewrite->fc->write_off - b->fil_offset >= diff1 && b->fil_offset < trx_doublewrite->fc->write_off ){
-		//		
-		//		ut_ad( b->fil_offset < trx_doublewrite->fc->write_off );
-		//		/* need to migrate */
-		//		buf_LRU_flash_cache_sync_hash_table(b,bpage);
-		//		fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
-		//		srv_flash_cache_migrate++;
-		//	}
-		//}
-		//else{
-		//	ut_a( trx_doublewrite->fc->flush_round + 1 ==  trx_doublewrite->fc->write_round );
-		//	if ( b->fil_offset > trx_doublewrite->fc->write_off && b->fil_offset - trx_doublewrite->fc->write_off <= diff2 ){
-		//		/* need to migrate */
-		//		buf_LRU_flash_cache_sync_hash_table(b,bpage);
-		//		fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
-		//		srv_flash_cache_migrate++;
-		//	}
-		//}
 	}
-	flash_cache_hash_mutex_exit(b->space,b->offset);
+	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
 	flash_cache_mutex_exit();
 }
 #endif /* UNIV_DEBUG_PRINT || UNIV_DEBUG || UNIV_BUF_DEBUG */

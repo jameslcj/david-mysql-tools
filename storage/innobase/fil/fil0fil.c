@@ -5027,8 +5027,8 @@ flash_cache_warmup_tablespace(
 				flash_cache_hash_mutex_exit(space_id,offset);
 				trx_doublewrite->fc->write_off = (trx_doublewrite->fc->write_off + 1)%trx_doublewrite->fc->write_cache_size;
 				trx_doublewrite->fc->flush_off = (trx_doublewrite->fc->flush_off + 1)%trx_doublewrite->fc->write_cache_size;
-				srv_flash_cache_write++;
-				srv_flash_cache_flush++;
+				//srv_flash_cache_write++;
+				//srv_flash_cache_flush++;
 				if ( trx_doublewrite->fc->write_off == 0 ){
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"  InnoDB: warm up table %s.%s to space: %lu offset %lu.(100%%)\n",dbname,tablename,space_id,i);
