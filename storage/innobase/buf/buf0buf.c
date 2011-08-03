@@ -5156,13 +5156,14 @@ buf_print_io(
 						"flash cache thread status: %s\n"
 						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%)\n"
 						"flash cache reads %lu:, writes %lu, flush %lu(%lu), migrate %lu\n"
-						"FIL_PAGE_INDEX reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_INODE reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_UNDO_LOG reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_TYPE_SYS reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_OTHER reads: %lu(%.2f%%):, writes: %lu, merge write: %lu\n"
-						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n",
+						"FIL_PAGE_INDEX reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_INODE reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_UNDO_LOG reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_TYPE_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_OTHER reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n"
+						"flash cache %.2f reads/s, %.2f writes/s. %.2f merge writes/s\n",
 						(ulong)trx_doublewrite->fc->fc_size,
 						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->fc->write_off,
@@ -5209,7 +5210,10 @@ buf_print_io(
 						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
 						(ulong)difftime(cur_time,flash_cache_stat.last_printout_time),
 						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/(srv_buf_pool_reads + pool_info->n_ra_pages_read ),
-						(100.0*srv_flash_cache_merge_write)/srv_flash_cache_write
+						(100.0*srv_flash_cache_merge_write)/srv_flash_cache_write,
+						( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / difftime(cur_time,flash_cache_stat.last_printout_time),
+						( srv_flash_cache_write - flash_cache_stat.n_pages_write ) / difftime(cur_time,flash_cache_stat.last_printout_time),
+						( srv_flash_cache_merge_write - flash_cache_stat.n_pages_merge_write ) / difftime(cur_time,flash_cache_stat.last_printout_time)
 
 			);
 		flash_cache_stat.flush_off = trx_doublewrite->fc->flush_off;
