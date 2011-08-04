@@ -69,6 +69,7 @@ extern ulint	srv_flash_cache_merge_write_detail[13];
 
 extern my_bool	srv_flash_cache_use_log;
 extern my_bool	srv_flash_cache_enable_migrate;
+extern my_bool	srv_flash_cache_is_raw;
 
 extern FILE*	srv_flash_cache_log_file;
 extern const char*	srv_flash_cache_thread_op_info;
