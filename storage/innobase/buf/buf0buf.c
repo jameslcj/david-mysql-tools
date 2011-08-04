@@ -5163,7 +5163,7 @@ buf_print_io(
 						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_OTHER reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n"
-						"flash cache %.2f reads/s, %.2f writes/s. %.2f merge writes/s\n",
+						"flash cache %.2f reads/s, %.2f writes/s. .2f flush/s, %.2f merge writes/s\n",
 						(ulong)trx_doublewrite->fc->fc_size,
 						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->fc->write_off,
@@ -5213,6 +5213,7 @@ buf_print_io(
 						(100.0*srv_flash_cache_merge_write)/srv_flash_cache_write,
 						( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / difftime(cur_time,flash_cache_stat.last_printout_time),
 						( srv_flash_cache_write - flash_cache_stat.n_pages_write ) / difftime(cur_time,flash_cache_stat.last_printout_time),
+						( srv_flash_cache_flush - flash_cache_stat.n_pages_flush ) / difftime(cur_time,flash_cache_stat.last_printout_time),
 						( srv_flash_cache_merge_write - flash_cache_stat.n_pages_merge_write ) / difftime(cur_time,flash_cache_stat.last_printout_time)
 
 			);
@@ -5220,7 +5221,8 @@ buf_print_io(
 		flash_cache_stat.flush_round = trx_doublewrite->fc->flush_round;
 		flash_cache_stat.write_off = trx_doublewrite->fc->write_off;
 		flash_cache_stat.write_round = trx_doublewrite->fc->write_round;
-		flash_cache_stat.n_pages_write = srv_flash_cache_flush;
+		flash_cache_stat.n_pages_write = srv_flash_cache_write;
+		flash_cache_stat.n_pages_flush = srv_flash_cache_flush;
 		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
 		flash_cache_stat.n_pages_read = srv_flash_cache_read;
 		flash_cache_stat.last_printout_time = ut_time();
@@ -5262,7 +5264,8 @@ buf_refresh_io_stats_all(void)
 		flash_cache_stat.flush_round = trx_doublewrite->fc->flush_round;
 		flash_cache_stat.write_off = trx_doublewrite->fc->write_off;
 		flash_cache_stat.write_round = trx_doublewrite->fc->write_round;
-		flash_cache_stat.n_pages_write = srv_flash_cache_flush;
+		flash_cache_stat.n_pages_write = srv_flash_cache_write;
+		flash_cache_stat.n_pages_flush = srv_flash_cache_flush;
 		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
 		flash_cache_stat.n_pages_read = srv_flash_cache_read;
 		flash_cache_stat.last_printout_time = ut_time();

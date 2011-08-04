@@ -128,6 +128,7 @@ struct flash_cache_stat_struct{
 	ulint flush_off;
 	ulint flush_round;
 	ulint n_pages_write;
+	ulint n_pages_flush;
 	ulint n_pages_merge_write;
 	ulint n_pages_read;
 	time_t last_printout_time;
