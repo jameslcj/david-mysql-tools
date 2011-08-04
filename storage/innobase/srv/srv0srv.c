@@ -3282,8 +3282,6 @@ srv_flash_cache_thread(
 		for ( i = 0; i < 30; i++ ){
 			cur_time = ut_time_ms();
 
-			srv_flash_cache_thread_op_info = "flushing flash cache pages";
-
 			n_flush = buf_flush_flash_cache_page(FALSE);
 
 			cur_time = ut_time_ms() - cur_time;

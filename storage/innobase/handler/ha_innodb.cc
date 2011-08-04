@@ -2426,10 +2426,8 @@ innobase_change_buffering_inited_ok:
 
 	/* --------------------------------------------------*/
 
-	if ( innobase_flash_cache_size > 0 ){
-		srv_flash_cache_size = (ulint) innobase_flash_cache_size;
-		srv_flash_read_cache_size = (ulint) innobase_flash_read_cache_size;
-	}
+	srv_flash_cache_size = (ulint) innobase_flash_cache_size;
+	srv_flash_read_cache_size = (ulint) innobase_flash_read_cache_size;
 
 	srv_file_flush_method_str = innobase_file_flush_method;
 
