@@ -276,7 +276,8 @@ flash_cache_log_init(
 		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
 		ut_error;
 	}
-	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, FALSE);
+	 
+	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, srv_flash_cache_is_raw);
 
 	if ( flash_cache_log->recovery ){
 		trx_doublewrite->fc->write_round = flash_cache_log->write_round;

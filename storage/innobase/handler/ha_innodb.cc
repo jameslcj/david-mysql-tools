@@ -11345,6 +11345,11 @@ static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
   "Enable flash cache log",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_BOOL(flash_cache_is_raw, srv_flash_cache_is_raw,
+  PLUGIN_VAR_READONLY,
+  "Use raw disk for flash cache",
+  NULL, NULL, FALSE);
+
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_migrate, srv_flash_cache_enable_migrate,
   PLUGIN_VAR_READONLY,
   "Enable flash cache log",
@@ -11366,6 +11371,7 @@ static MYSQL_SYSVAR_ULONG(flash_cache_migrate_pct, srv_flash_cache_migrate_pct,
   NULL, NULL, 80L, 30L, 95L, 0);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
+  MYSQL_SYSVAR(flash_cache_is_raw),
   MYSQL_SYSVAR(flash_cache_enable_migrate),
   MYSQL_SYSVAR(flash_cache_write_cache_pct),
   MYSQL_SYSVAR(flash_cache_do_full_io_pct),

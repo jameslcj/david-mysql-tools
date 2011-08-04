@@ -111,6 +111,7 @@ UNIV_INTERN ulint	srv_flash_read_cache_page = 512;
 
 UNIV_INTERN my_bool	srv_flash_cache_use_log = TRUE;
 UNIV_INTERN my_bool	srv_flash_cache_enable_migrate = TRUE;
+UNIV_INTERN my_bool	srv_flash_cache_is_raw = FALSE;
 
 /* The following counter is incremented whenever there is some user activity
 in the server */
