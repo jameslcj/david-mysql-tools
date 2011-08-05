@@ -2446,6 +2446,7 @@ ibool is_shutdown
 	ulint offset;
 	ulint start_offset = trx_doublewrite->fc->flush_off;
 	ulint page_type;
+	ulint j = 0;
 #ifdef UNIV_DEBUG
 	ulint lsn;
 	ulint lsn2;
@@ -2508,27 +2509,25 @@ ibool is_shutdown
 
 	ut_ad(trx_doublewrite->fc->flush_off + n_flush*UNIV_PAGE_SIZE <= srv_flash_cache_size);
 
-	ret = fil_io(OS_FILE_READ, TRUE,
-		FLASH_CACHE_SPACE, 0,
-		trx_doublewrite->fc->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
-		trx_doublewrite->fc->read_buf, NULL);
+	//ret = fil_io(OS_FILE_READ, TRUE,
+	//	FLASH_CACHE_SPACE, 0,
+	//	trx_doublewrite->fc->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
+	//	trx_doublewrite->fc->read_buf, NULL);
 
-	if ( ret != DB_SUCCESS ){
-		fprintf(
-			stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
-			"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
-			n_flush,
-			(ulong)trx_doublewrite->fc->flush_off,
-			(ulong)trx_doublewrite->fc->flush_round,
-			(ulong)trx_doublewrite->fc->write_off,
-			(ulong)trx_doublewrite->fc->write_round
-			);
-		ut_error;
-	}
+	//if ( ret != DB_SUCCESS ){
+	//	fprintf(
+	//		stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
+	//		"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
+	//		n_flush,
+	//		(ulong)trx_doublewrite->fc->flush_off,
+	//		(ulong)trx_doublewrite->fc->flush_round,
+	//		(ulong)trx_doublewrite->fc->write_off,
+	//		(ulong)trx_doublewrite->fc->write_round
+	//		);
+	//	ut_error;
+	//}
 
 	for(i = 0; i < n_flush; i++){
-		page = trx_doublewrite->fc->read_buf + i*UNIV_PAGE_SIZE;
-		page_type = fil_page_get_type(page);
 		if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED
 			|| trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
 			/* if readonly or merge write */
@@ -2556,6 +2555,7 @@ ibool is_shutdown
 				flash_cache_hash_mutex_exit(_space,_offset);
 			}
 #endif
+			page_type = fil_page_get_type(page);
 			if ( page_type == FIL_PAGE_INDEX ){
 				page_type = 1;
 			}
@@ -2563,6 +2563,13 @@ ibool is_shutdown
 			srv_flash_cache_merge_write++;
 			continue;
 		}
+
+		fil_io(OS_FILE_READ, TRUE,
+			FLASH_CACHE_SPACE, 0,
+			trx_doublewrite->fc->flush_off + i*UNIV_PAGE_SIZE, 0, UNIV_PAGE_SIZE,
+			trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE, NULL);
+		
+		page = trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE;
 		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
 #ifdef UNIV_DEBUG
@@ -2587,6 +2594,7 @@ ibool is_shutdown
 		}
 #endif
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
+		j++;
 	}
 
 	buf_flush_sync_datafiles();
