@@ -5163,7 +5163,7 @@ buf_print_io(
 						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_OTHER reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n"
-						"flash cache %.2f reads/s, %.2f writes/s. .2f flush/s, %.2f merge writes/s\n",
+						"flash cache %.2f reads/s, %.2f writes/s. %.2f flush/s, %.2f merge writes/s\n",
 						(ulong)trx_doublewrite->fc->fc_size,
 						srv_flash_cache_thread_op_info,
 						(ulong)trx_doublewrite->fc->write_off,

@@ -2514,19 +2514,6 @@ ibool is_shutdown
 	//	trx_doublewrite->fc->flush_off, 0, n_flush*UNIV_PAGE_SIZE,
 	//	trx_doublewrite->fc->read_buf, NULL);
 
-	//if ( ret != DB_SUCCESS ){
-	//	fprintf(
-	//		stderr,"InnoDB: Flash cache [Error]: unable to read %lu pages from flash cache.\n"
-	//		"flash cache flush offset is:%lu(%lu), current write offset is:%lu(%lu).",
-	//		n_flush,
-	//		(ulong)trx_doublewrite->fc->flush_off,
-	//		(ulong)trx_doublewrite->fc->flush_round,
-	//		(ulong)trx_doublewrite->fc->write_off,
-	//		(ulong)trx_doublewrite->fc->write_round
-	//		);
-	//	ut_error;
-	//}
-
 	for(i = 0; i < n_flush; i++){
 		if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED
 			|| trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
@@ -2564,14 +2551,22 @@ ibool is_shutdown
 			continue;
 		}
 
-		fil_io(OS_FILE_READ, TRUE,
+		ret = fil_io(OS_FILE_READ, TRUE,
 			FLASH_CACHE_SPACE, 0,
-			trx_doublewrite->fc->flush_off + i*UNIV_PAGE_SIZE, 0, UNIV_PAGE_SIZE,
+			trx_doublewrite->fc->flush_off + i, 0, UNIV_PAGE_SIZE,
 			trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE, NULL);
-		
+		if ( ret != DB_SUCCESS ){
+			ut_print_timestamp(stderr);
+			fprintf(
+				stderr,"InnoDB: Flash cache [Error]: unable to read page from flash cache.\n"
+				"flash cache flush offset is:%lu.\n",
+				(ulong)trx_doublewrite->fc->flush_off + i
+				);
+			ut_error;
+		}		
 		page = trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE;
-		space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-		offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
+		space = trx_doublewrite->fc->block[start_offset+i].space;
+		offset = trx_doublewrite->fc->block[start_offset+i].offset;
 #ifdef UNIV_DEBUG
 		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
 		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
