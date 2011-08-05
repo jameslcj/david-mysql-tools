@@ -2525,9 +2525,8 @@ ibool is_shutdown
 			trx_flashcache_block_t* b;
 
 			if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED ) {
-				_page = trx_doublewrite->fc->read_buf + i*UNIV_PAGE_SIZE;
-				_space = mach_read_from_4(_page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-				_offset = mach_read_from_4(_page+FIL_PAGE_OFFSET);
+				_space =  trx_doublewrite->fc->block[start_offset+i].space;
+				_offset =  trx_doublewrite->fc->block[start_offset+i].offset;
 
 				flash_cache_hash_mutex_enter(_space,_offset);
 				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
@@ -2542,11 +2541,11 @@ ibool is_shutdown
 				flash_cache_hash_mutex_exit(_space,_offset);
 			}
 #endif
-			page_type = fil_page_get_type(page);
-			if ( page_type == FIL_PAGE_INDEX ){
-				page_type = 1;
-			}
-			srv_flash_cache_merge_write_detail[page_type]++;
+			//page_type = fil_page_get_type(page);
+			//if ( page_type == FIL_PAGE_INDEX ){
+			//	page_type = 1;
+			//}
+			//srv_flash_cache_merge_write_detail[page_type]++;
 			srv_flash_cache_merge_write++;
 			continue;
 		}
