@@ -1,9 +1,0 @@
-#! /bin/sh
-
-path=`dirname $0`
-. "$path/SETUP.sh"
-
-extra_configs="$max_configs --with-ndb-test --with-ndb-ccflags='-DERROR_INSERT'"
-extra_flags="$fast_cflags $max_cflags -g"
-
-. "$path/FINISH.sh"
