@@ -974,6 +974,9 @@ flush:
 		
 		start_off = trx_doublewrite->fc->write_off;
 		srv_flash_cache_write += trx_doublewrite->first_free;
+		/* increment the doublewrite flushed pages counter */
+		srv_dblwr_pages_written+= trx_doublewrite->first_free;
+		srv_dblwr_writes++;
 
 		flash_cache_mutex_enter();
 retry:
