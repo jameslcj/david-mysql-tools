@@ -2276,6 +2276,8 @@ buf_page_t* bpage)
 {
 	trx_flashcache_block_t* b;
 	const page_t*	page = ((buf_block_t*) bpage)->frame;
+	ulint ret ;
+	ulint write_offset;
 
 	if ( fil_page_get_type(page) != FIL_PAGE_INDEX
 		&& fil_page_get_type(page) != FIL_PAGE_INODE ){
@@ -2292,13 +2294,22 @@ buf_page_t* bpage)
 		bpage->space == b->space && bpage->offset == b->offset);
 
 	if ( b ){
+		write_offset = trx_doublewrite->fc->write_off;
 		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT
 				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
 			/* need to migrate */
 			buf_LRU_flash_cache_sync_hash_table(b,bpage);
-			fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
+			ret = fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
+			if ( ret != DB_SUCCESS ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB: Error to migrate from buffer pool to flash cache, space:%lu, offset %lu",bpage->space,bpage->offset);
+				ut_error;
+			}
 			srv_flash_cache_migrate++;
 			trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
+			if ( write_offset > trx_doublewrite->fc->write_off ){
+				trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
+			}
 			srv_flash_cache_write++;
 		}
 	}

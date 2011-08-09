@@ -11368,7 +11368,7 @@ static MYSQL_SYSVAR_ULONG(flash_cache_do_full_io_pct, srv_flash_cache_do_full_io
 static MYSQL_SYSVAR_ULONG(flash_cache_migrate_pct, srv_flash_cache_migrate_pct,
   PLUGIN_VAR_READONLY,
   "Flash cache write cache percentage",
-  NULL, NULL, 80L, 30L, 95L, 0);
+  NULL, NULL, 80L, 30L, 100L, 0);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(flash_cache_is_raw),
