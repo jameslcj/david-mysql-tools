@@ -2286,6 +2286,7 @@ buf_page_t* bpage)
 			return;
 	}
 
+retry:
 	flash_cache_mutex_enter();
 	flash_cache_hash_mutex_enter(bpage->space,bpage->offset);	
 	/* search the same space offset in hash table */
@@ -2318,6 +2319,12 @@ buf_page_t* bpage)
 		}
 	}
 	else{
+		if ( !buf_LRU_is_flash_cache_migrate_avaliable() ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB: sleep for free space.");
+			flash_cache_mutex_exit();
+			goto retry;
+		}
 		buf_LRU_flash_cache_sync_hash_table(NULL,bpage);
 		ret = fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
 		if ( ret != DB_SUCCESS ){
@@ -2333,6 +2340,7 @@ buf_page_t* bpage)
 		srv_flash_cache_write++;
 	}
 	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
+	//flash_cache_log_commit();
 	flash_cache_mutex_exit();
 }
 
