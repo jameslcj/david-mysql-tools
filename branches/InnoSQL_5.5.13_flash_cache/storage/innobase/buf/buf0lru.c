@@ -2231,10 +2231,12 @@ buf_page_t* bpage /*!< frame to be written */
 	/* block to be written */
 	trx_flashcache_block_t* b2 = &trx_doublewrite->fc->block[trx_doublewrite->fc->write_off];
 
-	HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
-		buf_page_address_fold(b->space, b->offset),
-		b);
-	b->state = BLOCK_NOT_USED;
+	if ( b != NULL ){
+		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+			buf_page_address_fold(b->space, b->offset),
+			b);
+		b->state = BLOCK_NOT_USED;
+	}
 
 	if ( b2->state != BLOCK_NOT_USED ){
 		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
@@ -2293,9 +2295,11 @@ buf_page_t* bpage)
 		ut_ad(1),
 		bpage->space == b->space && bpage->offset == b->offset);
 
+	write_offset = trx_doublewrite->fc->write_off;
+
 	if ( b ){
-		write_offset = trx_doublewrite->fc->write_off;
-		if ( abs(trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT
+		if ( (((trx_doublewrite->fc->write_off > b->fil_offset) && (trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT)
+			 || ((trx_doublewrite->fc->write_off < b->fil_offset) && ( b->fil_offset - trx_doublewrite->fc->write_off ) >= FLASH_CACHE_MIGRATE_LIMIT))
 				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
 			/* need to migrate */
 			buf_LRU_flash_cache_sync_hash_table(b,bpage);
@@ -2312,6 +2316,21 @@ buf_page_t* bpage)
 			}
 			srv_flash_cache_write++;
 		}
+	}
+	else{
+		buf_LRU_flash_cache_sync_hash_table(NULL,bpage);
+		ret = fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
+		if ( ret != DB_SUCCESS ){
+			ut_print_timestamp(stderr);
+			fprintf(stderr,"	InnoDB: Error to migrate from buffer pool to flash cache, space:%lu, offset %lu",bpage->space,bpage->offset);
+			ut_error;
+		}
+		srv_flash_cache_migrate++;
+		trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
+		if ( write_offset > trx_doublewrite->fc->write_off ){
+			trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
+		}
+		srv_flash_cache_write++;
 	}
 	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
 	flash_cache_mutex_exit();
