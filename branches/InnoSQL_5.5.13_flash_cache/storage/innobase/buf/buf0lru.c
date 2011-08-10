@@ -2236,12 +2236,14 @@ buf_page_t* bpage /*!< frame to be written */
 			buf_page_address_fold(b->space, b->offset),
 			b);
 		b->state = BLOCK_NOT_USED;
+		srv_flash_cache_used = srv_flash_cache_used - 1;
 	}
 
 	if ( b2->state != BLOCK_NOT_USED ){
 		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 			buf_page_address_fold(b2->space, b2->offset),
 			b2);
+		srv_flash_cache_used = srv_flash_cache_used - 1;
 	}
 
 	b2->space = bpage->space;
@@ -2251,6 +2253,7 @@ buf_page_t* bpage /*!< frame to be written */
 	HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 		buf_page_address_fold(bpage->space, bpage->offset),
 		b2);
+	srv_flash_cache_used = srv_flash_cache_used + 1;
 
 }
 

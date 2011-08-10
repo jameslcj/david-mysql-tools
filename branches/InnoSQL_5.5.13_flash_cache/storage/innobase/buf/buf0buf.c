@@ -5154,7 +5154,7 @@ buf_print_io(
 		"----------------------\n", file);
 		fprintf(file,	"flash cache size: %lu \n"
 						"flash cache thread status: %s\n"
-						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%)\n"
+						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%), used %lu(%.2f).\n"
 						"flash cache reads %lu:, writes %lu, flush %lu(%lu), migrate %lu\n"
 						"FIL_PAGE_INDEX reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_INODE reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
@@ -5172,6 +5172,8 @@ buf_print_io(
 						(ulong)trx_doublewrite->fc->flush_round,
 						(ulong)cdiff,
 						(100.0*cdiff)/trx_doublewrite->fc->fc_size,
+						(ulong)srv_flash_cache_used,
+						(100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size,
 						(ulong)srv_flash_cache_read,
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
