@@ -2342,7 +2342,7 @@ retry:
 		if ( write_offset > trx_doublewrite->fc->write_off ){
 			trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
 		}
-		srv_flash_cache_write++;
+		srv_flash_cache_move++;
 	}
 	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
 	//flash_cache_log_commit();
