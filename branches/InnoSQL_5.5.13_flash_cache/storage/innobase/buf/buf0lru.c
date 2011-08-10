@@ -2337,7 +2337,7 @@ retry:
 			fprintf(stderr,"	InnoDB: Error to migrate from buffer pool to flash cache, space:%lu, offset %lu",bpage->space,bpage->offset);
 			ut_error;
 		}
-		srv_flash_cache_migrate++;
+		srv_flash_cache_write++;
 		trx_doublewrite->fc->write_off = ( trx_doublewrite->fc->write_off + 1 ) % trx_doublewrite->fc->fc_size;
 		if ( write_offset > trx_doublewrite->fc->write_off ){
 			trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
