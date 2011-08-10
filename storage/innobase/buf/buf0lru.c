@@ -2321,8 +2321,10 @@ retry:
 	else{
 		if ( !buf_LRU_is_flash_cache_migrate_avaliable() ){
 			ut_print_timestamp(stderr);
-			fprintf(stderr,"	InnoDB: sleep for free space.");
+			fprintf(stderr,"	InnoDB: sleep for free space.write offset %lu, flush offset %lu.Thread id is %lu.\n",trx_doublewrite->fc->write_off,trx_doublewrite->fc->flush_off,os_thread_get_curr_id());
+			flash_cache_hash_mutex_enter(bpage->space,bpage->offset);	
 			flash_cache_mutex_exit();
+			os_thread_sleep(5000);
 			goto retry;
 		}
 		buf_LRU_flash_cache_sync_hash_table(NULL,bpage);
