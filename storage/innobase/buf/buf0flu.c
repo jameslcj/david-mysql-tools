@@ -2426,8 +2426,14 @@ buf_flush_flash_cache_validate(){
 			space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 			if £¨space != b->space || offset != b->offset ){
 				ut_print_timestamp(stderr);
-				fprintf(stderr,"	InnoDB Error: on flash cache space: %lu, offset %lu, but read from disk space: %lu, offset %lu.\n",
-					block->space,block->space,offset,space);
+				fprintf(stderr,"	InnoDB Error: on flash cache space: %lu, offset %lu, but read from disk space: %lu, offset %lu.\n"
+					"write offset is %lu, flush offset is %lu, i is %lu,
+					block->space,
+					block->space,
+					offset,
+					space,
+					(ulong)trx_doublewrite->fc->write_offset,
+					(ulong)trx_doublewrite->fc->flush_offset,i);
 				ut_error;
 			}
 			ut_ad(space == b->space);
