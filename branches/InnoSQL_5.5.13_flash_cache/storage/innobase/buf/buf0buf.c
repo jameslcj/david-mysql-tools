@@ -5154,7 +5154,7 @@ buf_print_io(
 		"----------------------\n", file);
 		fprintf(file,	"flash cache size: %lu \n"
 						"flash cache thread status: %s\n"
-						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%), used %lu(%.2f).\n"
+						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%), used %lu(%.2f%%).\n"
 						"flash cache reads %lu:, writes %lu, flush %lu(%lu), migrate %lu, move %lu\n"
 						"FIL_PAGE_INDEX reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
 						"FIL_PAGE_INODE reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
