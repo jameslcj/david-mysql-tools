@@ -2228,10 +2228,12 @@ buf_LRU_flash_cache_sync_hash_table(
 trx_flashcache_block_t* b, /*!< flash cache block to be removed */
 buf_page_t* bpage /*!< frame to be written */
 ){
-	ut_ad(mutex_own(&trx_doublewrite->fc->fc_mutex));
+
 	
 	/* block to be written */
 	trx_flashcache_block_t* b2 = &trx_doublewrite->fc->block[trx_doublewrite->fc->write_off];
+
+	ut_ad(mutex_own(&trx_doublewrite->fc->fc_mutex));
 
 	if ( b != NULL ){
 		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
@@ -2324,7 +2326,7 @@ retry:
 		}
 	}
 	else if ( b == NULL && bpage->access_time != 0 
-			&& (100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size < 80 
+			/*&& (100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size < 80 */
 			){
 		if ( !buf_LRU_is_flash_cache_migrate_avaliable()  ){
 			ut_print_timestamp(stderr);
@@ -2351,6 +2353,9 @@ retry:
 	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
 	//flash_cache_log_commit();
 	flash_cache_mutex_exit();
+#ifdef UNIV_DEBUG
+	buf_flush_flash_cache_validate();
+#endif
 }
 
 #if defined UNIV_DEBUG_PRINT || defined UNIV_DEBUG || defined UNIV_BUF_DEBUG

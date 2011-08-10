@@ -2407,7 +2407,7 @@ buf_flush_flash_cache_validate(){
 	ulint space;
 	ulint offset;
 
-	flash_cache_mutex_enter();;
+	flash_cache_mutex_enter();
 	for(i=0; i<trx_doublewrite->fc->write_cache_size; i++){
 		b = &trx_doublewrite->fc->block[i];
 
@@ -2424,6 +2424,12 @@ buf_flush_flash_cache_validate(){
 			fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,&page,NULL);
 			offset = mach_read_from_4(page+FIL_PAGE_OFFSET);
 			space = mach_read_from_4(page+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+			if £¨space != b->space || offset != b->offset ){
+				ut_print_timestamp(stderr);
+				fprintf(stderr,"	InnoDB Error: on flash cache space: %lu, offset %lu, but read from disk space: %lu, offset %lu.\n",
+					block->space,block->space,offset,space);
+				ut_error;
+			}
 			ut_ad(space == b->space);
 			ut_ad(offset == b->offset);
 		}
@@ -2432,7 +2438,7 @@ buf_flush_flash_cache_validate(){
 		}
 		flash_cache_hash_mutex_exit(b->space,b->offset);
 	}
-	flash_cache_mutex_exit();;
+	flash_cache_mutex_exit();
 }
 
 /******************************************************************//**
