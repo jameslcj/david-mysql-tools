@@ -5023,6 +5023,7 @@ flash_cache_warmup_tablespace(
 							space_id,offset);
 						ut_error;
 					}
+					srv_flash_cache_used = srv_flash_cache_used + 1;
 				}
 				flash_cache_hash_mutex_exit(space_id,offset);
 				trx_doublewrite->fc->write_off = (trx_doublewrite->fc->write_off + 1)%trx_doublewrite->fc->write_cache_size;

@@ -743,6 +743,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 					buf_page_address_fold(b->space, b->offset),
 					b);
 				b->state = BLOCK_NOT_USED;
+				srv_flash_cache_used = srv_flash_cache_used - 1;
 			}
 		}
 		else{
@@ -779,12 +780,14 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(b2->space, b2->offset),
 					b2);
+				srv_flash_cache_used = srv_flash_cache_used - 1;
 			}
 
 			/* insert to hash table */
 			HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 				buf_page_address_fold(b->space, b->offset),
 				b);
+			srv_flash_cache_used = srv_flash_cache_used + 1;
 
 #ifdef UNIV_DEBUG
 			fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,&_page,NULL);
@@ -2409,7 +2412,7 @@ buf_flush_flash_cache_validate(){
 		b = &trx_doublewrite->fc->block[i];
 
 		flash_cache_hash_mutex_enter(b->space,b->offset);
-		if ( b->state == BLOCK_READY_FOR_FLUSH ){
+		if ( b->state != BLOCK_NOT_USED ){
 			HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
 				buf_page_address_fold(b->space,b->offset),
 				trx_flashcache_block_t*,b2,
@@ -2607,7 +2610,7 @@ ibool is_shutdown
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
 
-#ifdef UNIV_FLASH_CACHE_DEBUG
+#ifdef UNIV_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
 
