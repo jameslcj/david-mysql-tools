@@ -975,13 +975,13 @@ flush:
 
 	if ( srv_flash_cache_size > 0 ){
 		
-		start_off = trx_doublewrite->fc->write_off;
 		srv_flash_cache_write += trx_doublewrite->first_free;
 		/* increment the doublewrite flushed pages counter */
 		srv_dblwr_pages_written+= trx_doublewrite->first_free;
 		srv_dblwr_writes++;
 
 		flash_cache_mutex_enter();
+		start_off = trx_doublewrite->fc->write_off;
 retry:
 		if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
 			/* in the same round */
@@ -2465,6 +2465,7 @@ ibool is_shutdown
 	ulint start_offset = trx_doublewrite->fc->flush_off;
 	ulint page_type;
 	ulint j = 0;
+	ulint n_page_read_cache = 0;
 #ifdef UNIV_DEBUG
 	ulint lsn;
 	ulint lsn2;
@@ -2472,7 +2473,8 @@ ibool is_shutdown
 	ulint space2;
 	ulint offset2;
 #endif
-	
+
+retry:
 	flash_cache_mutex_enter();
 	if ( trx_doublewrite->fc->flush_round == trx_doublewrite->fc->write_round ){
 		if ( trx_doublewrite->fc->flush_off + srv_io_capacity <= trx_doublewrite->fc->write_off ) {
@@ -2559,15 +2561,21 @@ ibool is_shutdown
 				flash_cache_hash_mutex_exit(_space,_offset);
 			}
 #endif
-			//page_type = fil_page_get_type(page);
-			//if ( page_type == FIL_PAGE_INDEX ){
-			//	page_type = 1;
-			//}
-			//srv_flash_cache_merge_write_detail[page_type]++;
-			srv_flash_cache_merge_write++;
+			if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED ){
+				//page_type = fil_page_get_type(page);
+				//if ( page_type == FIL_PAGE_INDEX ){
+				//	page_type = 1;
+				//}
+				//srv_flash_cache_merge_write_detail[page_type]++;
+				srv_flash_cache_merge_write++;
+			}
+			else if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
+				n_page_read_cache++;
+			}
 			continue;
 		}
 
+		ut_a( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READY_FOR_FLUSH );
 		ret = fil_io(OS_FILE_READ, TRUE,
 			FLASH_CACHE_SPACE, 0,
 			trx_doublewrite->fc->flush_off + i, 0, UNIV_PAGE_SIZE,
@@ -2605,6 +2613,7 @@ ibool is_shutdown
 			ut_ad( offset == offset2 );
 		}
 #endif
+		//trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 		j++;
 	}
@@ -2626,6 +2635,9 @@ ibool is_shutdown
 	buf_flush_flash_cache_validate();
 #endif
 
+	if ( n_page_read_cache == n_flush ){
+		goto retry;
+	}
 
 	return n_flush;
 
