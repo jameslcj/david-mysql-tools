@@ -183,11 +183,11 @@ buf_read_page_low(
 					_offset = mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_OFFSET);
 					_space = mach_read_from_4(((buf_block_t*) bpage)->frame+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 					if ( _offset != offset || _space != space ){
-					HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
-						buf_page_address_fold(_offset,_space),
-						trx_flashcache_block_t*,b2,
-						ut_ad(1),
-						_space == b2->space && _offset == b2->offset);
+						HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
+							buf_page_address_fold(_offset,_space),
+							trx_flashcache_block_t*,b2,
+							ut_ad(1),
+							_space == b2->space && _offset == b2->offset);
 						ut_error;
 					}
 #endif
