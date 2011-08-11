@@ -2236,7 +2236,6 @@ buf_page_t* bpage /*!< frame to be written */
 	ut_ad(mutex_own(&trx_doublewrite->fc->fc_mutex));
 
 	if ( b != NULL ){
-		ut_a( b->state != BLOCK_READY_FOR_FLUSH );
 		HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 			buf_page_address_fold(b->space, b->offset),
 			b);
@@ -2251,7 +2250,6 @@ buf_page_t* bpage /*!< frame to be written */
 		srv_flash_cache_used = srv_flash_cache_used - 1;
 	}
 
-	ut_a( b2->state != BLOCK_READY_FOR_FLUSH );
 	b2->space = bpage->space;
 	b2->offset = bpage->offset;
 	b2->state = BLOCK_READ_CACHE;
