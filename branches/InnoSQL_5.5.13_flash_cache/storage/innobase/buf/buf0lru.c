@@ -2326,6 +2326,7 @@ retry:
 		}
 	}
 	else if ( b == NULL && bpage->access_time != 0 
+			&& b->state != BLOCK_READY_FOR_FLUSH
 			/*&& (100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size < 80 */
 			){
 		if ( !buf_LRU_is_flash_cache_migrate_avaliable()  ){
