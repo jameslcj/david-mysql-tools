@@ -99,7 +99,7 @@ UNIV_INTERN ulint	srv_flash_cache_move = 0;
 UNIV_INTERN FILE*	srv_flash_cache_log_file;
 UNIV_INTERN ulint	srv_flash_cache_read_detail[FIL_PAGE_TYPE_ZBLOB2+1];
 UNIV_INTERN ulint	srv_flash_cache_write_detail[FIL_PAGE_TYPE_ZBLOB2+1];
-UNIV_INTERN ulint	srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_ZBLOB2+1];
+UNIV_INTERN ulint	srv_flash_cache_flush_detail[FIL_PAGE_TYPE_ZBLOB2+1];
 UNIV_INTERN ulint	srv_flash_cache_used = 0;
 UNIV_INTERN ulint	srv_flash_cache_migrate = 0;
 
