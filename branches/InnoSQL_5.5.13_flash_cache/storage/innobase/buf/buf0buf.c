@@ -5178,8 +5178,8 @@ buf_print_io(
 						(ulong)srv_flash_cache_write,
 						(ulong)srv_flash_cache_flush,
 						(ulong)srv_flash_cache_merge_write,
-						(ulong)srv_flash_cache_migrate,
 						(ulong)srv_flash_cache_move,
+						(ulong)srv_flash_cache_migrate,
 						(ulong)srv_flash_cache_read_detail[1],(100.0*srv_flash_cache_read_detail[1])/(fc_read_point),
 						(ulong)srv_flash_cache_write_detail[1],(ulong)srv_flash_cache_merge_write_detail[1],
 						(ulong)srv_flash_cache_read_detail[FIL_PAGE_INODE],(100.0*srv_flash_cache_read_detail[FIL_PAGE_INODE])/(fc_read_point),
@@ -5213,13 +5213,13 @@ buf_print_io(
 						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
 						(ulong)difftime(cur_time,flash_cache_stat.last_printout_time),
 						(ulong)(srv_flash_cache_read==0)?0:(100.0*srv_flash_cache_read)/(srv_buf_pool_reads + pool_info->n_ra_pages_read ),
-						(100.0*srv_flash_cache_merge_write)/srv_flash_cache_write,
+						(100.0*srv_flash_cache_merge_write)/(srv_flash_cache_write - srv_flash_cache_migrate - srv_flash_cache_move),
 						( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / difftime(cur_time,flash_cache_stat.last_printout_time),
 						( srv_flash_cache_write - flash_cache_stat.n_pages_write ) / difftime(cur_time,flash_cache_stat.last_printout_time),
 						( srv_flash_cache_flush - flash_cache_stat.n_pages_flush ) / difftime(cur_time,flash_cache_stat.last_printout_time),
 						( srv_flash_cache_merge_write - flash_cache_stat.n_pages_merge_write ) / difftime(cur_time,flash_cache_stat.last_printout_time),
-						( srv_flash_cache_migrate - flash_cache_stat.n_pages_migrate ) / difftime(cur_time,flash_cache_stat.last_printout_time),
-						( srv_flash_cache_move - flash_cache_stat.n_pages_move ) / difftime(cur_time,flash_cache_stat.last_printout_time)
+						( srv_flash_cache_move - flash_cache_stat.n_pages_move ) / difftime(cur_time,flash_cache_stat.last_printout_time),
+						( srv_flash_cache_migrate - flash_cache_stat.n_pages_migrate ) / difftime(cur_time,flash_cache_stat.last_printout_time)
 
 			);
 		flash_cache_stat.flush_off = trx_doublewrite->fc->flush_off;
@@ -5230,8 +5230,8 @@ buf_print_io(
 		flash_cache_stat.n_pages_flush = srv_flash_cache_flush;
 		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
 		flash_cache_stat.n_pages_read = srv_flash_cache_read;
-		flash_cache_stat.n_pages_migrate = srv_flash_cache_migrate;
 		flash_cache_stat.n_pages_move = srv_flash_cache_move;
+		flash_cache_stat.n_pages_migrate = srv_flash_cache_migrate;
 		flash_cache_stat.last_printout_time = ut_time();
 	}
 
@@ -5275,8 +5275,8 @@ buf_refresh_io_stats_all(void)
 		flash_cache_stat.n_pages_flush = srv_flash_cache_flush;
 		flash_cache_stat.n_pages_merge_write = srv_flash_cache_merge_write;
 		flash_cache_stat.n_pages_read = srv_flash_cache_read;
-		flash_cache_stat.n_pages_migrate = srv_flash_cache_migrate;
 		flash_cache_stat.n_pages_move = srv_flash_cache_move;
+		flash_cache_stat.n_pages_migrate = srv_flash_cache_migrate;
 		flash_cache_stat.last_printout_time = ut_time();
 	}
 }
