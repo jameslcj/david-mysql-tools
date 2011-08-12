@@ -2634,7 +2634,7 @@ retry:
 	buf_flush_flash_cache_validate();
 #endif
 
-	if ( n_page_read_cache == n_flush ){
+	if ( n_page_read_cache == n_flush && n_flush !=0 ){
 		goto retry;
 	}
 
