@@ -57,7 +57,7 @@ extern ulint	srv_flash_cache_read;
 extern ulint	srv_flash_cache_write;
 extern ulint	srv_flash_cache_flush;
 extern ulint	srv_flash_cache_merge_write;
-extern ulint	srv_flash_cache_migrate;
+extern ulint	srv_flash_cache_move;
 extern ulint	srv_flash_cache_pages_per_read;
 extern ulong	srv_flash_cache_write_cache_pct;
 extern ulong	srv_flash_cache_do_full_io_pct;
@@ -67,7 +67,7 @@ extern ulint	srv_flash_cache_read_detail[13];
 extern ulint	srv_flash_cache_write_detail[13];
 extern ulint	srv_flash_cache_merge_write_detail[13];
 extern ulint	srv_flash_cache_used;
-extern ulint	srv_flash_cache_move;
+extern ulint	srv_flash_cache_migrate;
 
 extern my_bool	srv_flash_cache_use_log;
 extern my_bool	srv_flash_cache_enable_migrate;
