@@ -2541,7 +2541,6 @@ retry:
 #ifdef UNIV_DEBUG
 			ulint _space;
 			ulint _offset;
-			byte* _page;
 			trx_flashcache_block_t* b;
 
 			if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED ) {
@@ -2562,11 +2561,6 @@ retry:
 			}
 #endif
 			if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED ){
-				//page_type = fil_page_get_type(page);
-				//if ( page_type == FIL_PAGE_INDEX ){
-				//	page_type = 1;
-				//}
-				//srv_flash_cache_merge_write_detail[page_type]++;
 				srv_flash_cache_merge_write++;
 			}
 			else if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
@@ -2613,6 +2607,11 @@ retry:
 			ut_ad( offset == offset2 );
 		}
 #endif
+		page_type = fil_page_get_type(page);
+		if ( page_type == FIL_PAGE_INDEX ){
+			page_type = 1;
+		}
+		srv_flash_cache_flush_detail[page_type]++;
 		trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 		j++;

@@ -5156,12 +5156,12 @@ buf_print_io(
 						"flash cache thread status: %s\n"
 						"flash cache location is: %lu(%lu), flush to %lu(%lu), distance %lu (%.2f%%), used %lu(%.2f%%).\n"
 						"flash cache reads %lu:, writes %lu, flush %lu(%lu), migrate %lu, move %lu\n"
-						"FIL_PAGE_INDEX reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_INODE reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_UNDO_LOG reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_TYPE_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
-						"FIL_PAGE_OTHER reads: %lu(%.2f%%): writes: %lu, merge write: %lu\n"
+						"FIL_PAGE_INDEX reads: %lu(%.2f%%): writes: %lu, flush: %lu, merge raio %.2f%%\n"
+						"FIL_PAGE_INODE reads: %lu(%.2f%%): writes: %lu, flush: %lu, merge raio %.2f%%\n"
+						"FIL_PAGE_UNDO_LOG reads: %lu(%.2f%%): writes: %lu, flush: %lu, merge raio %.2f%%\n"
+						"FIL_PAGE_TYPE_SYS reads: %lu(%.2f%%): writes: %lu, flush: %lu, merge raio %.2f%%\n"
+						"FIL_PAGE_TYPE_TRX_SYS reads: %lu(%.2f%%): writes: %lu, flush: %lu, merge raio %.2f%%\n"
+						"FIL_PAGE_OTHER reads: %lu(%.2f%%): writes: %lu, flush: %lu\n"
 						"flash cache read hit ratio %.2f%% in %lu second(total %.2f%%), merge write ratio %.2f%%\n"
 						"flash cache %.2f reads/s, %.2f writes/s. %.2f flush/s, %.2f merge writes/s, %.2f migrate/s, %.2f move/s\n",
 						(ulong)trx_doublewrite->fc->fc_size,
@@ -5181,15 +5181,15 @@ buf_print_io(
 						(ulong)srv_flash_cache_move,
 						(ulong)srv_flash_cache_migrate,
 						(ulong)srv_flash_cache_read_detail[1],(100.0*srv_flash_cache_read_detail[1])/(fc_read_point),
-						(ulong)srv_flash_cache_write_detail[1],(ulong)srv_flash_cache_merge_write_detail[1],
+						(ulong)srv_flash_cache_write_detail[1],(ulong)srv_flash_cache_flush_detail[1],100.0-(100.0*srv_flash_cache_flush_detail[1])/srv_flash_cache_write_detail[1],
 						(ulong)srv_flash_cache_read_detail[FIL_PAGE_INODE],(100.0*srv_flash_cache_read_detail[FIL_PAGE_INODE])/(fc_read_point),
-						(ulong)srv_flash_cache_write_detail[FIL_PAGE_INODE],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_INODE],
+						(ulong)srv_flash_cache_write_detail[FIL_PAGE_INODE],(ulong)srv_flash_cache_flush_detail[FIL_PAGE_INODE],100.0-(100.0*srv_flash_cache_flush_detail[FIL_PAGE_INODE])/srv_flash_cache_write_detail[FIL_PAGE_INODE],
 						(ulong)srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG],(100.0*srv_flash_cache_read_detail[FIL_PAGE_UNDO_LOG])/(fc_read_point),
-						(ulong)srv_flash_cache_write_detail[FIL_PAGE_UNDO_LOG],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_UNDO_LOG],
+						(ulong)srv_flash_cache_write_detail[FIL_PAGE_UNDO_LOG],(ulong)srv_flash_cache_flush_detail[FIL_PAGE_UNDO_LOG],100.0-(100.0*srv_flash_cache_flush_detail[FIL_PAGE_UNDO_LOG])/srv_flash_cache_write_detail[FIL_PAGE_UNDO_LOG],
 						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_SYS])/(fc_read_point),
-						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_SYS],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_SYS],
+						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_SYS],(ulong)srv_flash_cache_flush_detail[FIL_PAGE_TYPE_SYS],100.0-(100.0*srv_flash_cache_flush_detail[FIL_PAGE_TYPE_SYS])/srv_flash_cache_write_detail[FIL_PAGE_TYPE_SYS],
 						(ulong)srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS],(100.0*srv_flash_cache_read_detail[FIL_PAGE_TYPE_TRX_SYS])/(fc_read_point),
-						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_TRX_SYS],(ulong)srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_TRX_SYS],
+						(ulong)srv_flash_cache_write_detail[FIL_PAGE_TYPE_TRX_SYS],(ulong)srv_flash_cache_flush_detail[FIL_PAGE_TYPE_TRX_SYS],100.0-(100.0*srv_flash_cache_flush_detail[FIL_PAGE_TYPE_TRX_SYS])/srv_flash_cache_write_detail[FIL_PAGE_TYPE_TRX_SYS],
 						(ulong)(srv_flash_cache_read_detail[FIL_PAGE_IBUF_FREE_LIST] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_ALLOCATED]
 									+ srv_flash_cache_read_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_FSP_HDR]
 									+ srv_flash_cache_read_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_read_detail[FIL_PAGE_TYPE_BLOB]
@@ -5205,10 +5205,10 @@ buf_print_io(
 									+ srv_flash_cache_write_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_write_detail[FIL_PAGE_TYPE_BLOB]
 									+ srv_flash_cache_write_detail[FIL_PAGE_TYPE_ZBLOB] + srv_flash_cache_write_detail[FIL_PAGE_TYPE_ZBLOB2]
 								),
-						(ulong)(srv_flash_cache_merge_write_detail[FIL_PAGE_IBUF_FREE_LIST] + srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_ALLOCATED]
-									+ srv_flash_cache_merge_write_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_FSP_HDR]
-									+ srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_BLOB]
-									+ srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_ZBLOB] + srv_flash_cache_merge_write_detail[FIL_PAGE_TYPE_ZBLOB2]
+						(ulong)(srv_flash_cache_flush_detail[FIL_PAGE_IBUF_FREE_LIST] + srv_flash_cache_flush_detail[FIL_PAGE_TYPE_ALLOCATED]
+									+ srv_flash_cache_flush_detail[FIL_PAGE_IBUF_BITMAP] + srv_flash_cache_flush_detail[FIL_PAGE_TYPE_FSP_HDR]
+									+ srv_flash_cache_flush_detail[FIL_PAGE_TYPE_XDES] + srv_flash_cache_flush_detail[FIL_PAGE_TYPE_BLOB]
+									+ srv_flash_cache_flush_detail[FIL_PAGE_TYPE_ZBLOB] + srv_flash_cache_flush_detail[FIL_PAGE_TYPE_ZBLOB2]
 								),
 						(ulong)(pool_info->page_read_delta == 0)?0:100.0*( srv_flash_cache_read - flash_cache_stat.n_pages_read ) / ( pool_info->page_read_delta ),
 						(ulong)difftime(cur_time,flash_cache_stat.last_printout_time),

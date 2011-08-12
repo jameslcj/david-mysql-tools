@@ -65,7 +65,7 @@ extern ulong	srv_flash_cache_migrate_pct;
 extern ulint	srv_flash_read_cache_page;
 extern ulint	srv_flash_cache_read_detail[13];
 extern ulint	srv_flash_cache_write_detail[13];
-extern ulint	srv_flash_cache_merge_write_detail[13];
+extern ulint	srv_flash_cache_flush_detail[13];
 extern ulint	srv_flash_cache_used;
 extern ulint	srv_flash_cache_migrate;
 
