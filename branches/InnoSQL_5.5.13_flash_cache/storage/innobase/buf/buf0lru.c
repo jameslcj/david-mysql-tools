@@ -2305,11 +2305,11 @@ retry:
 
 	write_offset = trx_doublewrite->fc->write_off;
 
-	if ( b ){
+	/*if ( b ){
 		if ( (((trx_doublewrite->fc->write_off > b->fil_offset) && (trx_doublewrite->fc->write_off - b->fil_offset ) >= FLASH_CACHE_MIGRATE_LIMIT)
 			 || ((trx_doublewrite->fc->write_off < b->fil_offset) && ( b->fil_offset - trx_doublewrite->fc->write_off ) >= FLASH_CACHE_MIGRATE_LIMIT))
-				&& buf_LRU_is_flash_cache_migrate_avaliable() ){
-			/* need to migrate */
+				&& buf_LRU_is_flash_cache_migrate_avaliable()
+				&& b->state != BLOCK_READY_FOR_FLUSH ){
 			buf_LRU_flash_cache_sync_hash_table(b,bpage);
 			ret = fil_io(OS_FILE_WRITE,TRUE,FLASH_CACHE_SPACE,0,trx_doublewrite->fc->write_off,0,UNIV_PAGE_SIZE,((buf_block_t*)bpage)->frame,NULL);
 			if ( ret != DB_SUCCESS ){
@@ -2325,8 +2325,8 @@ retry:
 			srv_flash_cache_write++;
 		}
 	}
-	else if ( b == NULL && bpage->access_time != 0 
-			&& b->state != BLOCK_READY_FOR_FLUSH
+	else*/ 
+		if ( b == NULL && bpage->access_time != 0 
 			/*&& (100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size < 80 */
 			){
 		if ( !buf_LRU_is_flash_cache_migrate_avaliable()  ){

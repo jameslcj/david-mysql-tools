@@ -2613,7 +2613,7 @@ retry:
 			ut_ad( offset == offset2 );
 		}
 #endif
-		//trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
+		trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 		j++;
 	}
