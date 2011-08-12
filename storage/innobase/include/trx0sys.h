@@ -589,8 +589,8 @@ identifier is added to this 64-bit constant. */
 enum flash_cache_block_state{
 	BLOCK_NOT_USED,
 	BLOCK_READY_FOR_FLUSH,
-	BLOCK_READ_CACHE
-//	BLOCK_FLUSHED
+	BLOCK_READ_CACHE,
+	BLOCK_FLUSHED
 };
 
 /** Flash cache block strunct */
