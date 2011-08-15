@@ -736,7 +736,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 		flash_cache_hash_mutex_enter(b->space,b->offset);
 
 		if ( stage == 1 ){
-			if ( b->state == BLOCK_READ_CACHE || b->state == BLOCK_FLUSHED ){
+			if ( b->state != BLOCK_NOT_USED ){
 				trx_flashcache_block_t* z;
 
 				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
@@ -757,9 +757,6 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 					b);
 				b->state = BLOCK_NOT_USED;
 				srv_flash_cache_used = srv_flash_cache_used - 1;
-			}
-			else if ( b->state == BLOCK_READY_FOR_FLUSH ){
-				ut_error;
 			}
 		}
 		else{
