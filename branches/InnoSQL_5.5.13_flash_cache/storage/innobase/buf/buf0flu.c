@@ -731,19 +731,35 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 		}
 
 		off = (start_off + i) % trx_doublewrite->fc->write_cache_size;
-			
-		b = &trx_doublewrite->fc->block[off];
 
+		b = &trx_doublewrite->fc->block[off];
 		flash_cache_hash_mutex_enter(b->space,b->offset);
 
 		if ( stage == 1 ){
-			if ( b->state ){
+			if ( b->state == BLOCK_READ_CACHE || b->state == BLOCK_FLUSHED ){
+				trx_flashcache_block_t* z;
+
+				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
+					buf_page_address_fold(block->page.space,block->page.offset),
+					trx_flashcache_block_t*,z,
+					ut_ad(1),
+					z->space == b->space && z->offset == b->offset);
+
+				if ( z != b ){
+					ut_print_timestamp(stderr);
+					fprintf(stderr,"	InnoDB: Error block state is %lu, but can not find in hash table.\n",b->state);
+					ut_error;
+				}
+
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(b->space, b->offset),
 					b);
 				b->state = BLOCK_NOT_USED;
 				srv_flash_cache_used = srv_flash_cache_used - 1;
+			}
+			else if ( b->state == BLOCK_READY_FOR_FLUSH ){
+				ut_error;
 			}
 		}
 		else{
@@ -775,6 +791,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				block->page.space == b2->space && block->page.offset == b2->offset);
 
 			if ( b2 ){
+				ut_a( b2->state != BLOCK_NOT_USED );
 				b2->state = BLOCK_NOT_USED;
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
