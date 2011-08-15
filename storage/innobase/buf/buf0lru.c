@@ -2326,7 +2326,7 @@ retry:
 		}
 	}
 	else*/ 
-		if ( b == NULL && bpage->access_time != 0 
+	if ( b == NULL && bpage->access_time != 0 
 			/*&& (100.0*srv_flash_cache_used)/trx_doublewrite->fc->fc_size < 80 */
 			){
 		if ( !buf_LRU_is_flash_cache_migrate_avaliable()  ){
@@ -2354,7 +2354,7 @@ retry:
 	flash_cache_hash_mutex_exit(bpage->space,bpage->offset);
 	//flash_cache_log_commit();
 	flash_cache_mutex_exit();
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
 }
