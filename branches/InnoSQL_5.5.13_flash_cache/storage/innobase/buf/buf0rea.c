@@ -147,7 +147,7 @@ buf_read_page_low(
 
 		if ( trx_doublewrite && srv_flash_cache_size > 0 ){
 			trx_flashcache_block_t* b;
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 			trx_flashcache_block_t* b2;
 #endif
 			
