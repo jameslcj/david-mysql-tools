@@ -5201,7 +5201,7 @@ finish:
 	flash_cache_mutex_enter();
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
 	mem_free(dbpath);

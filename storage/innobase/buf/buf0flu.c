@@ -740,7 +740,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				trx_flashcache_block_t* z;
 
 				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
-					buf_page_address_fold(block->page.space,block->page.offset),
+					buf_page_address_fold(b->space,b->offset),
 					trx_flashcache_block_t*,z,
 					ut_ad(1),
 					z->space == b->space && z->offset == b->offset);
@@ -748,7 +748,6 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				if ( z != b ){
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"	InnoDB: Error block state is %lu, but can not find in hash table.\n",b->state);
-					ut_error;
 				}
 
 				/* alread used, remove it from the hash table */
@@ -760,7 +759,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 			}
 		}
 		else{
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 			ulint _offset;
 			ulint _space;
 
@@ -803,7 +802,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 				b);
 			srv_flash_cache_used = srv_flash_cache_used + 1;
 
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 			fil_io(OS_FILE_READ,TRUE,FLASH_CACHE_SPACE,0,b->fil_offset,0,UNIV_PAGE_SIZE,&_page,NULL);
 			_offset = mach_read_from_4(_page + FIL_PAGE_OFFSET);
 			_space = mach_read_from_4(_page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID );
@@ -2480,7 +2479,7 @@ ibool is_shutdown
 	ulint page_type;
 	ulint j = 0;
 	ulint n_page_read_cache = 0;
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 	ulint lsn;
 	ulint lsn2;
 	byte page2[UNIV_PAGE_SIZE];
@@ -2552,7 +2551,7 @@ retry:
 		if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED
 			|| trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
 			/* if readonly or merge write */
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 			ulint _space;
 			ulint _offset;
 			trx_flashcache_block_t* b;
@@ -2600,7 +2599,7 @@ retry:
 		page = trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE;
 		space = trx_doublewrite->fc->block[start_offset+i].space;
 		offset = trx_doublewrite->fc->block[start_offset+i].offset;
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
 		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
 		lsn2 = mach_read_from_4(page2+FIL_PAGE_LSN);
@@ -2644,7 +2643,7 @@ retry:
 	flash_cache_log_commit();
 	flash_cache_mutex_exit();
 
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
 
