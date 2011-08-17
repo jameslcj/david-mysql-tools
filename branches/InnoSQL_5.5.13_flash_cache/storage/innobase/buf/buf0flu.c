@@ -698,7 +698,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 	trx_flashcache_block_t* b;
 	trx_flashcache_block_t* b2;
 	ulint page_type;
-#ifdef UNIV_DEBUG
+#ifdef UNIV_FLASH_DEBUG
 	byte _page[16384];
 #endif
 
@@ -2548,6 +2548,7 @@ retry:
 	//	trx_doublewrite->fc->read_buf, NULL);
 
 	for(i = 0; i < n_flush; i++){
+		flash_cache_mutex_enter();
 		if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_NOT_USED
 			|| trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
 			/* if readonly or merge write */
@@ -2579,10 +2580,13 @@ retry:
 			else if ( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READ_CACHE ){
 				n_page_read_cache++;
 			}
+			flash_cache_mutex_exit();
 			continue;
 		}
 
 		ut_a( trx_doublewrite->fc->block[start_offset+i].state == BLOCK_READY_FOR_FLUSH );
+		trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
+		flash_cache_mutex_exit();
 		ret = fil_io(OS_FILE_READ, TRUE,
 			FLASH_CACHE_SPACE, 0,
 			trx_doublewrite->fc->flush_off + i, 0, UNIV_PAGE_SIZE,
@@ -2597,8 +2601,10 @@ retry:
 			ut_error;
 		}		
 		page = trx_doublewrite->fc->read_buf + j*UNIV_PAGE_SIZE;
-		space = trx_doublewrite->fc->block[start_offset+i].space;
-		offset = trx_doublewrite->fc->block[start_offset+i].offset;
+		space = mach_read_from_4( page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID );
+		ut_a( space == trx_doublewrite->fc->block[start_offset+i].space );
+		offset = mach_read_from_4( page + FIL_PAGE_OFFSET );
+		ut_a( offset == trx_doublewrite->fc->block[start_offset+i].offset );
 #ifdef UNIV_FLASH_DEBUG
 		lsn = mach_read_from_4(page+FIL_PAGE_LSN);
 		fil_io(OS_FILE_READ,TRUE,space,0,offset,0,UNIV_PAGE_SIZE,&page2,NULL);
@@ -2625,7 +2631,6 @@ retry:
 			page_type = 1;
 		}
 		srv_flash_cache_flush_detail[page_type]++;
-		trx_doublewrite->fc->block[start_offset+i].state = BLOCK_FLUSHED;
 		fil_io(OS_FILE_WRITE | OS_AIO_SIMULATED_WAKE_LATER,FALSE,space,0,offset,0,UNIV_PAGE_SIZE,page,NULL);
 		j++;
 	}
