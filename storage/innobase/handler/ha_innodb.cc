@@ -600,6 +600,8 @@ innobase_commit_low(
 	trx_t*	trx);	/*!< in: transaction handle */
 
 static SHOW_VAR innodb_status_variables[]= {
+  {"flash_cache_used",
+  (char*) &export_vars.innodb_flash_cache_pages_read,	  SHOW_LONG},
   {"flash_cache_read",
   (char*) &export_vars.innodb_flash_cache_pages_read,	  SHOW_LONG},
   {"flash_cache_write",
@@ -11351,8 +11353,8 @@ static MYSQL_SYSVAR_BOOL(flash_cache_is_raw, srv_flash_cache_is_raw,
   NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_migrate, srv_flash_cache_enable_migrate,
-  PLUGIN_VAR_READONLY,
-  "Enable flash cache log",
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_THDLOCAL,
+  "Enable flash cache migrate",
   NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_ULONG(flash_cache_write_cache_pct, srv_flash_cache_write_cache_pct,
