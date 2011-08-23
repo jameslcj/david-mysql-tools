@@ -737,19 +737,7 @@ buf_flu_sync_flash_cache_hash_table(ulint start_off,ulint stage){
 
 		if ( stage == 1 ){
 			if ( b->state != BLOCK_NOT_USED ){
-				trx_flashcache_block_t* z;
-
-				HASH_SEARCH(hash,trx_doublewrite->fc->fc_hash,
-					buf_page_address_fold(b->space,b->offset),
-					trx_flashcache_block_t*,z,
-					ut_ad(1),
-					z->space == b->space && z->offset == b->offset);
-
-				if ( z != b ){
-					ut_print_timestamp(stderr);
-					fprintf(stderr,"	InnoDB: Error block state is %lu, but can not find in hash table.\n",b->state);
-				}
-
+				ut_ad( b->state != BLOCK_READY_FOR_FLUSH );
 				/* alread used, remove it from the hash table */
 				HASH_DELETE(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
 					buf_page_address_fold(b->space, b->offset),
@@ -1033,10 +1021,12 @@ retry1:
 				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
 					trx_doublewrite->fc->write_off, 0, len1*UNIV_PAGE_SIZE,
 					   (void*) trx_doublewrite->write_buf, NULL);
-				/* write second buf, start from 0 offset */
-				fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
-					0, 0, len2*UNIV_PAGE_SIZE,
-					   (void*) (trx_doublewrite->write_buf + len1*UNIV_PAGE_SIZE), NULL);
+				if ( len2 > 0 ){
+					/* write second buf, start from 0 offset */
+					fil_io(OS_FILE_WRITE, TRUE, FLASH_CACHE_SPACE, 0,
+						0, 0, len2*UNIV_PAGE_SIZE,
+						   (void*) (trx_doublewrite->write_buf + len1*UNIV_PAGE_SIZE), NULL);
+				}
 				buf_flu_sync_flash_cache_hash_table(start_off,2);
 				trx_doublewrite->fc->write_off = len2;
 				trx_doublewrite->fc->write_round = trx_doublewrite->fc->write_round + 1;
@@ -2487,7 +2477,6 @@ ibool is_shutdown
 	ulint offset2;
 #endif
 
-retry:
 	flash_cache_mutex_enter();
 	if ( trx_doublewrite->fc->flush_round == trx_doublewrite->fc->write_round ){
 		if ( trx_doublewrite->fc->flush_off + srv_io_capacity <= trx_doublewrite->fc->write_off ) {
@@ -2651,10 +2640,6 @@ retry:
 #ifdef UNIV_FLASH_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
-
-	if ( n_page_read_cache == n_flush && n_flush !=0 ){
-		goto retry;
-	}
 
 	return n_flush;
 
