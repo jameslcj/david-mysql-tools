@@ -11365,7 +11365,7 @@ static MYSQL_SYSVAR_ULONG(flash_cache_write_cache_pct, srv_flash_cache_write_cac
 static MYSQL_SYSVAR_ULONG(flash_cache_do_full_io_pct, srv_flash_cache_do_full_io_pct,
   PLUGIN_VAR_READONLY,
   "Flash cache write cache percentage",
-  NULL, NULL, 70L, 0, 90L, 0);
+  NULL, NULL, 90L, 0, 95L, 0);
 
 static MYSQL_SYSVAR_ULONG(flash_cache_migrate_pct, srv_flash_cache_migrate_pct,
   PLUGIN_VAR_READONLY,

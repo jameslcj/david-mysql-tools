@@ -616,7 +616,7 @@ fil_node_create(
 	node->name = mem_strdup(name);
 	node->open = FALSE;
 
-	ut_a(!is_raw || srv_start_raw_disk_in_use);
+	ut_a(!is_raw || srv_start_raw_disk_in_use || srv_flash_cache_is_raw);
 
 	node->is_raw_disk = is_raw;
 	node->size = size;
