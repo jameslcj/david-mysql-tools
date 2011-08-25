@@ -169,8 +169,9 @@ buf_read_page_low(
 				*err = fil_io(OS_FILE_READ | wake_later,
 					sync, FLASH_CACHE_SPACE, 0, b->fil_offset, 0, UNIV_PAGE_SIZE,
 					((buf_block_t*) bpage)->frame, bpage);
-				flash_cache_hash_mutex_exit(space,offset);		
 				srv_flash_cache_read++;
+				flash_cache_hash_mutex_exit(space,offset);		
+
 
 
 				if ( sync ){
