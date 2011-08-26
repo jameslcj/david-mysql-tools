@@ -3306,7 +3306,7 @@ srv_flash_cache_thread(
 			}
 		}
 
-		while ( old_activity_count == srv_activity_count ){
+		while ( old_activity_count == srv_activity_count && srv_shutdown_state == SRV_SHUTDOWN_NONE ){
 			srv_flash_cache_thread_op_info = "flushing full flash cache pages in idle";
 			if ( buf_flush_flash_cache_page(TRUE) == 0 )
 				break;
