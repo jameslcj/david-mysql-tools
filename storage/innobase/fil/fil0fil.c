@@ -119,6 +119,8 @@ UNIV_INTERN ulint	fil_n_log_flushes			= 0;
 UNIV_INTERN ulint	fil_n_pending_log_flushes		= 0;
 /** Number of pending tablespace flushes */
 UNIV_INTERN ulint	fil_n_pending_tablespace_flushes	= 0;
+/** Number of pending tablespace flushes */
+UNIV_INTERN ulint	fil_n_pending_flash_cache_flushes	= 0;
 
 /** The null file address */
 UNIV_INTERN fil_addr_t	fil_addr_null = {FIL_NULL, 0};
@@ -836,7 +838,7 @@ add_size:
 
 	system->n_open++;
 
-	if (space->purpose == FIL_TABLESPACE && space->id != 0) {
+	if ((space->purpose == FIL_TABLESPACE || space->purpose == FIL_FLASH_CACHE) && space->id != 0) {
 		/* Put the node to the LRU list */
 		UT_LIST_ADD_FIRST(LRU, system->LRU, node);
 	}
@@ -869,7 +871,8 @@ fil_node_close_file(
 	ut_a(system->n_open > 0);
 	system->n_open--;
 
-	if (node->space->purpose == FIL_TABLESPACE && node->space->id != 0) {
+	if ((node->space->purpose == FIL_TABLESPACE || node->space->purpose == FIL_FLASH_CACHE)
+		&& node->space->id != 0) {
 		ut_a(UT_LIST_GET_LEN(system->LRU) > 0);
 
 		/* The node is in the LRU list, remove it */
@@ -1048,7 +1051,12 @@ close_more:
 	/* Flush tablespaces so that we can close modified files in the LRU
 	list */
 
+	if ( space_id == FLASH_CACHE_SPACE ){
+		fil_flush_file_spaces(FIL_FLASH_CACHE );
+	}
+	else {
 	fil_flush_file_spaces(FIL_TABLESPACE);
+	}
 
 	count++;
 
@@ -4199,7 +4207,7 @@ fil_node_prepare_for_io(
 		fil_node_open_file(node, system, space);
 	}
 
-	if (node->n_pending == 0 && space->purpose == FIL_TABLESPACE
+	if (node->n_pending == 0 &&  (space->purpose == FIL_TABLESPACE || space->purpose == FIL_FLASH_CACHE)
 	    && space->id != 0) {
 		/* The node is in the LRU list, remove it */
 
@@ -4245,7 +4253,7 @@ fil_node_complete_io(
 		}
 	}
 
-	if (node->n_pending == 0 && node->space->purpose == FIL_TABLESPACE
+	if (node->n_pending == 0 && (node->space->purpose == FIL_TABLESPACE || node->space->purpose == FIL_FLASH_CACHE)
 	    && node->space->id != 0) {
 		/* The node must be put back to the LRU list */
 		UT_LIST_ADD_FIRST(LRU, system->LRU, node);
@@ -4322,6 +4330,7 @@ fil_io(
 	ibool		ret;
 	ulint		is_log;
 	ulint		wake_later;
+	ulint		is_fc_aio = 0;
 
 	is_log = type & OS_FILE_LOG;
 	type = type & ~OS_FILE_LOG;
@@ -4329,6 +4338,11 @@ fil_io(
 	wake_later = type & OS_AIO_SIMULATED_WAKE_LATER;
 	type = type & ~OS_AIO_SIMULATED_WAKE_LATER;
 
+	if ( srv_flash_cache_size > 0 ){
+		if ( space_id == FLASH_CACHE_SPACE && type == OS_FILE_WRITE && sync == FALSE ){
+			is_fc_aio = 1;
+		}
+	}
 	ut_ad(byte_offset < UNIV_PAGE_SIZE);
 	ut_ad(!zip_size || !byte_offset);
 	ut_ad(ut_is_2pow(zip_size));
@@ -4355,7 +4369,9 @@ fil_io(
 		   && !recv_no_ibuf_operations
 		   && ibuf_page(space_id, zip_size, block_offset, NULL)) {
 		mode = OS_AIO_IBUF;
-	} else {
+	} else if ( is_fc_aio ){
+		mode = OS_AIO_FLASH_CACHE_WRITE;
+	}else {
 		mode = OS_AIO_NORMAL;
 	}
 #else /* !UNIV_HOTBACKUP */
@@ -4391,7 +4407,7 @@ fil_io(
 		return(DB_TABLESPACE_DELETED);
 	}
 
-	ut_ad((mode != OS_AIO_IBUF) || (space->purpose == FIL_TABLESPACE));
+	ut_ad((mode != OS_AIO_IBUF) || (space->purpose == FIL_TABLESPACE || space->purpose == FIL_FLASH_CACHE));
 
 	node = UT_LIST_GET_FIRST(space->chain);
 
@@ -4569,7 +4585,11 @@ fil_aio_wait(
 			return ;
 		}
 		buf_page_io_complete(message);
-	} else {
+	}
+	else if ( fil_node->space->purpose == FIL_FLASH_CACHE ){
+
+	}
+	else {
 		srv_set_io_thread_op_info(segment, "complete io for log");
 		log_io_complete(message);
 	}
@@ -4615,7 +4635,9 @@ fil_flush(
 
 			if (space->purpose == FIL_TABLESPACE) {
 				fil_n_pending_tablespace_flushes++;
-			} else {
+			}else if ( space->purpose == FIL_FLASH_CACHE ){
+				fil_n_pending_flash_cache_flushes++;
+			}else {
 				fil_n_pending_log_flushes++;
 				fil_n_log_flushes++;
 			}
@@ -4678,7 +4700,9 @@ skip_flush:
 
 			if (space->purpose == FIL_TABLESPACE) {
 				fil_n_pending_tablespace_flushes--;
-			} else {
+			} else if ( space->purpose == FIL_FLASH_CACHE ){
+				fil_n_pending_flash_cache_flushes--;
+			}else {
 				fil_n_pending_log_flushes--;
 			}
 		}
@@ -4795,7 +4819,7 @@ fil_validate(void)
 	while (fil_node != NULL) {
 		ut_a(fil_node->n_pending == 0);
 		ut_a(fil_node->open);
-		ut_a(fil_node->space->purpose == FIL_TABLESPACE);
+		ut_a(fil_node->space->purpose == FIL_TABLESPACE || fil_node->space->purpose == FIL_FLASH_CACHE);
 		ut_a(fil_node->space->id != 0);
 
 		fil_node = UT_LIST_GET_NEXT(LRU, fil_node);
@@ -4941,6 +4965,7 @@ flash_cache_warmup_tablespace(
 			return TRUE;
 		}
 
+
 		if ( trx_doublewrite->fc->write_round == trx_doublewrite->fc->flush_round ){
 			n_pages = trx_doublewrite->fc->write_cache_size - ( trx_doublewrite->fc->write_off - trx_doublewrite->fc->flush_off ) ;
 		}
@@ -5036,15 +5061,15 @@ flash_cache_warmup_tablespace(
 					ut_print_timestamp(stderr);
 					fprintf(stderr,"  InnoDB: flash cache is full, warm up stop.\n");
 					os_aio_simulated_wake_handler_threads();
-					os_aio_wait_until_no_pending_writes();
-					fil_flush_file_spaces(FIL_TABLESPACE);
+					os_aio_wait_until_no_pending_fc_writes();
+					fil_flush_file_spaces(FIL_FLASH_CACHE);
 					ut_free(buf_unaligned);
 					return FALSE;
 				}
 			}
 			os_aio_simulated_wake_handler_threads();
-			os_aio_wait_until_no_pending_writes();
-			fil_flush_file_spaces(FIL_TABLESPACE);
+			os_aio_wait_until_no_pending_fc_writes();
+			fil_flush_file_spaces(FIL_FLASH_CACHE);
 			i = i + srv_flash_cache_pages_per_read;
 		}
 		ut_free(buf_unaligned);
@@ -5059,16 +5084,34 @@ fil_flash_cache_warmup(void){
 	int		ret;
 	char*		dbpath		= NULL;
 	ulint		dbpath_len	= 100;
+	ulint		i = 0;
 	os_file_dir_t	dir;
 	os_file_dir_t	dbdir;
 	os_file_stat_t	dbinfo;
 	os_file_stat_t	fileinfo;
+	trx_flashcache_block_t* b;
 	ulint		err		= DB_SUCCESS;
 
 	if ( srv_flash_cache_size == 0 ){
 		return;
 	}
 
+/*
+	if(trx_doublewrite->fc->is_read_from_shm)
+	{
+		for(; i < trx_doublewrite->fc->write_cache_size; i++)
+		{
+			b = &trx_doublewrite->fc->block[i];
+			if(b->state == BLOCK_NOT_USED)
+			{
+				continue;
+			}
+			HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+				buf_page_address_fold(b->space, b->offset),b);
+		}
+		goto finish;
+	}
+*/
 	/* The datadir of MySQL is always the default directory of mysqld */
 
 	dir = os_file_opendir(fil_path_to_mysql_datadir, TRUE);
@@ -5204,5 +5247,8 @@ finish:
 #ifdef UNIV_FLASH_DEBUG
 	buf_flush_flash_cache_validate();
 #endif
-	mem_free(dbpath);
+	if(!trx_doublewrite->fc->is_read_from_shm)
+	{
+		mem_free(dbpath);
+	}
 }

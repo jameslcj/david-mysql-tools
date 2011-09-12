@@ -164,6 +164,7 @@ log. */
 				i/o is not as good, because it must serialize
 				the file seek and read or write, causing a
 				bottleneck for parallelism. */
+#define OS_AIO_FLASH_CACHE_WRITE 25 /*!<  Asynchronous i/o for flash cache */
 
 #define OS_AIO_SIMULATED_WAKE_LATER	512 /*!< This can be ORed to mode
 				in the call of os_aio(...),
@@ -194,6 +195,7 @@ extern ulint	os_n_fsyncs;
 extern mysql_pfs_key_t	innodb_file_data_key;
 extern mysql_pfs_key_t	innodb_file_log_key;
 extern mysql_pfs_key_t	innodb_file_temp_key;
+extern mysql_pfs_key_t	innodb_flash_cache_file_key;
 
 /* Following four macros are instumentations to register
 various file I/O operations with performance schema.
@@ -1062,6 +1064,13 @@ be other, synchronous, pending writes. */
 UNIV_INTERN
 void
 os_aio_wait_until_no_pending_writes(void);
+/*=====================================*/
+/************************************************************************//**
+Waits until there are no pending writes in os_aio_write_array. There can
+be other, synchronous, pending writes. */
+UNIV_INTERN
+void
+os_aio_wait_until_no_pending_fc_writes(void);
 /*=====================================*/
 /**********************************************************************//**
 Wakes up simulated aio i/o-handler threads if they have something to do. */

@@ -216,6 +216,80 @@ flash_cache_log_commit(
 	os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
 	os_file_flush(flash_cache_log->file);
 }
+/*********************************************************************//**
+Creates or opens the log files and closes them.@return	DB_SUCCESS or error code */
+static
+ulint
+open_or_create_flash_cache_file()
+{	
+	ibool	ret;
+	ulint	size;
+	ulint	size_high;
+	ulint	low32;
+	ulint	high32;
+	os_file_t file;
+	ulint flash_cache_size = srv_flash_cache_size / UNIV_PAGE_SIZE;
+	low32 = (0xFFFFFFFFUL & (flash_cache_size << UNIV_PAGE_SIZE_SHIFT));
+	high32 = (flash_cache_size >> (32 - UNIV_PAGE_SIZE_SHIFT));
+	file = os_file_create(innodb_flash_cache_file_key, srv_flash_cache_file, OS_FILE_CREATE, OS_FILE_NORMAL, OS_LOG_FILE, &ret);
+	if (ret == FALSE)
+	{
+		if (os_file_get_last_error(FALSE) != OS_FILE_ALREADY_EXISTS
+#ifdef UNIV_AIX
+		/* AIX 5.1 after security patch ML7 may have errno set
+		to 0 here, which causes our function to return 100;
+		work around that AIX problem */
+		&& os_file_get_last_error(FALSE) != 100
+#endif
+		) {
+			fprintf(stderr,"InnoDB: Error in creating or opening %s\n", srv_flash_cache_file);
+			return(DB_ERROR);
+		}
+			
+		file = os_file_create(innodb_flash_cache_file_key, srv_flash_cache_file,OS_FILE_OPEN, OS_FILE_AIO,OS_LOG_FILE, &ret);
+		if (!ret)
+		{
+			fprintf(stderr,	"InnoDB: Error in opening %s\n", srv_flash_cache_file);
+			return(DB_ERROR);
+		}
+		ret = os_file_get_size(file, &size, &size_high);
+		if (size != low32 || size_high != high32)
+		{
+			fprintf(stderr,
+				"InnoDB: Error: flash cache file %s is"
+				" of different size %lu %lu bytes\n"
+				"InnoDB: than specified in the .cnf"
+				" file %lu %lu bytes!\n",
+				srv_flash_cache_file, (ulong) size_high, (ulong) size,	
+				(ulong)low32,(ulong)high32);
+			return(DB_ERROR);
+		}
+	}
+	else
+	{
+		ut_print_timestamp(stderr);
+		fprintf(stderr,
+		"  InnoDB: flash cache file %s did not exist:"
+		" new to be created\n",
+		srv_flash_cache_file);
+		fprintf(stderr, "InnoDB: Setting flash cache file %s size to %lu MB\n",
+		srv_flash_cache_file, (ulong) flash_cache_size >> (20 - UNIV_PAGE_SIZE_SHIFT));
+		fprintf(stderr,
+		"InnoDB: Database physically writes the file"
+		" full: wait...\n");
+		ret = os_file_set_size(srv_flash_cache_file, file,low32,high32);
+		if (!ret)
+		{
+			fprintf(stderr,
+			"InnoDB: Error in creating %s:"
+			" probably out of disk space\n",
+			srv_flash_cache_file);
+			return(DB_ERROR);
+		}
+	}
+	ret = os_file_close(file);
+	return(DB_SUCCESS);
+}
 /****************************************************************//**
 Initialize flash cache log.																  
 */
@@ -235,7 +309,7 @@ flash_cache_log_init(
 	memset(flash_cache_log->buf,'\0',FLASH_CACHE_BUFFER_SIZE);
 	if ( ret ){
 		/* Create file success, it is the first time to create log file. */
-		mach_write_to_2(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,0);
+		mach_write_to_1(flash_cache_log->buf+FLASH_CACHE_LOG_NEED_RECOVERY,0);
 		os_file_write(srv_flash_cache_log_file_name,flash_cache_log->file,flash_cache_log->buf,0,0,FLASH_CACHE_BUFFER_SIZE);
 		os_file_flush(flash_cache_log->file);
 		flash_cache_log->recovery = FALSE;
@@ -271,7 +345,8 @@ flash_cache_log_init(
 			flash_cache_log->recovery = 1;
 		}
 	}
-	ret = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_TABLESPACE);
+	open_or_create_flash_cache_file();
+	ret = fil_space_create(srv_flash_cache_file, FLASH_CACHE_SPACE, 0, FIL_FLASH_CACHE);
 	if ( !ret ){
 		fprintf(stderr,"InnoDB [Error]: fail to create flash cache file.\n");
 		ut_error;
@@ -280,6 +355,20 @@ flash_cache_log_init(
 	fil_node_create(srv_flash_cache_file, srv_flash_cache_size, FLASH_CACHE_SPACE, srv_flash_cache_is_raw);
 
 	if ( flash_cache_log->recovery ){
+		int i;
+		trx_doublewrite->fc->write_round = flash_cache_log->write_round;
+		trx_doublewrite->fc->write_off = flash_cache_log->write_offset;
+		trx_doublewrite->fc->flush_off = flash_cache_log->flush_offset;
+		trx_doublewrite->fc->flush_round = flash_cache_log->flush_round;
+		for(i=0;i<trx_doublewrite->fc->fc_size;i++)
+		{
+			trx_doublewrite->fc->block[i].fil_offset = i;
+			trx_doublewrite->fc->block[i].space = 0;
+			trx_doublewrite->fc->block[i].offset = 0;
+			trx_doublewrite->fc->block[i].state = BLOCK_NOT_USED;
+		}
+	}
+	else if ( trx_doublewrite->fc->is_read_from_shm ){
 		trx_doublewrite->fc->write_round = flash_cache_log->write_round;
 		trx_doublewrite->fc->write_off = flash_cache_log->write_offset;
 		trx_doublewrite->fc->flush_off = flash_cache_log->flush_offset;
@@ -399,7 +488,6 @@ ulint* n_pages_recovery
 				buf_page_address_fold(b->space, b->offset),
 				b);
 		}
-		//flash_cache_hash_mutex_exit(space,offset);
 
 		/* insert to hash table */
 		b =  &trx_doublewrite->fc->block[f_offset+j];

@@ -1830,7 +1830,7 @@ innobase_start_or_create_for_mysql(void)
 		return((int)DB_ERROR);
 	}
 
-	if ( srv_flash_cache_size > 0 && flash_cache_no_recovery() && srv_flash_cache_warmup_table ){
+	if ( srv_flash_cache_size > 0 && flash_cache_no_recovery() && srv_flash_cache_warmup_table && !trx_doublewrite->fc->is_read_from_shm ){
 		fil_flash_cache_warmup();
 	}
 

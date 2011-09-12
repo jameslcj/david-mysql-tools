@@ -170,7 +170,92 @@ trx_doublewrite_page_inside(
 
 	return(FALSE);
 }
-
+/*****************************************************************//**
+alloc the flash cache's block by share memory 					*/
+static
+void*
+trx_flash_cache_block_mem_alloc(ulint n)
+{
+	void *ptr;
+#ifdef __WIN__
+	ptr = NULL;
+#else
+	int shmid;
+	struct shmid_ds buf;
+	key_t key;
+	key = ftok(".",1);
+	if(key == -1)
+	{
+		fprintf(stderr,"InnoDB: alloc share memory for flash cache block error\n");
+		ptr = NULL;
+	}
+	else
+	{
+		shmid = shmget(key,0,SHM_R | SHM_W);
+		if(shmid < 0)
+		{
+			shmid = shmget(key, (size_t)n, IPC_CREAT | SHM_R | SHM_W);
+		}
+		else
+		{
+			shmctl(shmid,IPC_STAT,&buf);
+			if(buf.shm_segsz != n)
+			{
+				fprintf(stderr,"InnoDB: WARNING: flash cache block error,a new memory will be created\n");
+				shmctl(shmid,IPC_RMID,&buf);
+				shmid = shmget(key,(size_t)n,IPC_CREAT | SHM_R | SHM_W);
+			}
+			else
+			{
+				trx_doublewrite->fc->is_read_from_shm = TRUE;
+			}
+		}
+		if(shmid < 0)
+		{
+			fprintf(stderr,"InnoDB: WARNING: failed to allocate %lu bytes for flash cache block, errno %d\n",n,errno);
+			ptr = NULL;
+		}
+		else
+		{
+			ptr = shmat(shmid,NULL,0);
+			if(ptr == (void*)-1)
+			{
+				fprintf(stderr,"InnoDB: WARNING: Failed to attach shared memory segment,errno %d\n",errno);
+				ptr = NULL;
+			}
+		}
+	}
+#endif
+	if(ptr == NULL)
+	{
+		trx_doublewrite->fc->is_read_from_shm = FALSE;
+		ptr = ut_malloc(n);
+	}
+	return ptr;
+}
+/*****************************************************************//**
+delete the share memory of the flash cache block if not configure*/
+static
+void
+trx_del_flash_cache_block_shm()
+{
+#ifndef __WIN__
+	int shmid; 
+	struct shmid_ds buf;
+	key_t key;
+	key = ftok(".",1);
+	if(key != -1)
+	{
+		shmid = shmget(key,0,SHM_R | SHM_W);
+		if(shmid >= 0)
+		{
+			shmctl(shmid,IPC_RMID,&buf);
+			ut_print_timestamp(stderr);
+			fprintf(stderr," InnoDB: remove the share memory of the flash cache block\n");
+		}
+	}
+#endif
+}
 /****************************************************************//**
 Initialializes the flash cahce at database startup. */
 static
@@ -185,8 +270,7 @@ trx_flash_cache_init(
 	trx_doublewrite->fc->write_off = 0;
 	trx_doublewrite->fc->flush_off = 0;
 	trx_doublewrite->fc->fc_size = srv_flash_cache_size >> UNIV_PAGE_SIZE_SHIFT ; 
-	trx_doublewrite->fc->read_cache_size = srv_flash_read_cache_size >> UNIV_PAGE_SIZE_SHIFT;
-	trx_doublewrite->fc->write_cache_size = trx_doublewrite->fc->fc_size - trx_doublewrite->fc->read_cache_size;
+	trx_doublewrite->fc->write_cache_size = trx_doublewrite->fc->fc_size;
 #ifdef UNIV_SYNC_DEBUG
 	trx_doublewrite->fc->fc_hash = ha_create(2 * trx_doublewrite->fc->write_cache_size,4,0);
 #else
@@ -194,6 +278,7 @@ trx_flash_cache_init(
 #endif
 	trx_doublewrite->fc->write_round = 0;
 	trx_doublewrite->fc->flush_round = 0;
+	trx_doublewrite->fc->is_read_from_shm = FALSE;
 	trx_doublewrite->fc->read_buf_unalign = ut_malloc((srv_io_capacity+1)*UNIV_PAGE_SIZE);
 	trx_doublewrite->fc->read_buf = ut_align(trx_doublewrite->fc->read_buf_unalign,UNIV_PAGE_SIZE);
 
@@ -201,19 +286,24 @@ trx_flash_cache_init(
 		&trx_doublewrite->fc->fc_mutex, SYNC_DOUBLEWRITE);
 	
 
-	if ( trx_doublewrite->fc->read_cache_size > 0 ){
-		trx_doublewrite->fc->read_cache_start_pos = trx_doublewrite->fc->write_cache_size;
-		trx_doublewrite->fc->read_cache_pos =  trx_doublewrite->fc->write_cache_size;
-		trx_doublewrite->fc->read_cache_buf_unaligned = (byte*)ut_malloc((srv_flash_read_cache_page+1)*UNIV_PAGE_SIZE);
-		trx_doublewrite->fc->read_cache_buf = (byte*)ut_align(trx_doublewrite->fc->read_cache_buf_unaligned,UNIV_PAGE_SIZE);
+	//trx_doublewrite->fc->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
+	if(srv_flash_cache_use_shm_for_block)
+	{
+		trx_doublewrite->fc->block = (trx_flashcache_block_t*)trx_flash_cache_block_mem_alloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
 	}
-
-	trx_doublewrite->fc->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
-	for(i=0;i<trx_doublewrite->fc->fc_size;i++){
-		trx_doublewrite->fc->block[i].fil_offset = i;
-		trx_doublewrite->fc->block[i].space = 0;
-		trx_doublewrite->fc->block[i].offset = 0;
-		trx_doublewrite->fc->block[i].state = BLOCK_NOT_USED;
+	else
+	{
+		trx_del_flash_cache_block_shm();
+		trx_doublewrite->fc->block = (trx_flashcache_block_t*)ut_malloc(sizeof(trx_flashcache_block_t)*trx_doublewrite->fc->fc_size);
+	}
+	if(!trx_doublewrite->fc->is_read_from_shm)
+	{
+		for(i=0;i<trx_doublewrite->fc->fc_size;i++){
+			trx_doublewrite->fc->block[i].fil_offset = i;
+			trx_doublewrite->fc->block[i].space = 0;
+			trx_doublewrite->fc->block[i].offset = 0;
+			trx_doublewrite->fc->block[i].state = BLOCK_NOT_USED;
+		}
 	}
 }
 
@@ -225,7 +315,18 @@ trx_flash_cache_free(
 /*=================*/
 ){
 	ut_free(trx_doublewrite->fc->read_buf_unalign);
-	ut_free(trx_doublewrite->fc->block);
+	if(srv_flash_cache_use_shm_for_block)
+	{
+#ifdef __WIN__
+		ut_free(trx_doublewrite->fc->block);
+#else
+		shmdt(trx_doublewrite->fc->block);
+#endif
+	}
+	else
+	{
+		ut_free(trx_doublewrite->fc->block);
+	}
 	ha_clear(trx_doublewrite->fc->fc_hash);
 	mutex_free(&trx_doublewrite->fc->fc_mutex);
 	ut_free(trx_doublewrite->fc);
@@ -691,11 +792,7 @@ trx_sys_doublewrite_init_or_restore_pages(
 	ulint	space_id;
 	ulint	page_no;
 	ulint	i;
-
-	//if ( srv_flash_cache_size > 0 ){
-	//	flash_cache_log_init();
-	//	flash_cache_log_recovery();
-	//}
+	
 	/* We do the file i/o past the buffer pool */
 
 	unaligned_read_buf = ut_malloc(2 * UNIV_PAGE_SIZE);
@@ -720,6 +817,11 @@ trx_sys_doublewrite_init_or_restore_pages(
 		buf = trx_doublewrite->write_buf;
 	} else {
 		goto leave_func;
+	}
+
+	if ( srv_flash_cache_size > 0 ) {
+		trx_sys_multiple_tablespace_format = TRUE;
+		goto leave;
 	}
 
 	if (mach_read_from_4(doublewrite + TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED)
@@ -879,9 +981,25 @@ trx_sys_doublewrite_init_or_restore_pages(
 
 	fil_flush_file_spaces(FIL_TABLESPACE);
 
+leave:
 	if ( srv_flash_cache_size > 0 ){
 		flash_cache_log_init();
-		flash_cache_log_recovery();
+		if ( trx_doublewrite->fc->is_read_from_shm ){
+			trx_flashcache_block_t* b;
+			for(i = 0; i < trx_doublewrite->fc->write_cache_size; i++)
+			{
+				b = &trx_doublewrite->fc->block[i];
+				if(b->state == BLOCK_NOT_USED)
+				{
+					continue;
+				}
+				HASH_INSERT(trx_flashcache_block_t,hash,trx_doublewrite->fc->fc_hash,
+					buf_page_address_fold(b->space, b->offset),b);
+			}
+		}
+		else{
+			flash_cache_log_recovery();
+		}
 	}
 
 leave_func:

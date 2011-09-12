@@ -147,6 +147,7 @@ extern fil_addr_t	fil_addr_null;
 /** Space types @{ */
 #define FIL_TABLESPACE		501	/*!< tablespace */
 #define FIL_LOG			502	/*!< redo log */
+#define FIL_FLASH_CACHE	503 /*!< flash cache file */
 /* @} */
 
 /** The number of fsyncs done to the log */

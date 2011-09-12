@@ -151,6 +151,7 @@ UNIV_INTERN ibool	os_aio_print_debug	= FALSE;
 UNIV_INTERN mysql_pfs_key_t  innodb_file_data_key;
 UNIV_INTERN mysql_pfs_key_t  innodb_file_log_key;
 UNIV_INTERN mysql_pfs_key_t  innodb_file_temp_key;
+UNIV_INTERN mysql_pfs_key_t  innodb_flash_cache_file_key;
 #endif /* UNIV_PFS_IO */
 
 /** The asynchronous i/o array slot structure */
@@ -268,6 +269,9 @@ static os_aio_array_t*	os_aio_write_array	= NULL;	/*!< Writes */
 static os_aio_array_t*	os_aio_ibuf_array	= NULL;	/*!< Insert buffer */
 static os_aio_array_t*	os_aio_log_array	= NULL;	/*!< Redo log */
 static os_aio_array_t*	os_aio_sync_array	= NULL;	/*!< Synchronous I/O */
+static os_aio_array_t*	os_aio_fc_read_array = NULL; /*!< Flash Cache Reads */
+static os_aio_array_t*	os_aio_fc_write_array = NULL; /*!< Flash Cache Writes */
+
 /* @} */
 
 /** Number of asynchronous I/O segments.  Set by os_aio_init(). */
@@ -3371,7 +3375,13 @@ os_aio_init(
 				array */
 {
 	ulint	i;
-	ulint 	n_segments = 2 + n_read_segs + n_write_segs;
+	ulint 	n_segments;
+	
+	if ( srv_flash_cache_size > 0 ){
+		n_segments = 4 + n_read_segs + n_write_segs;
+	}else{
+		n_segments = 2 + n_read_segs + n_write_segs;
+	}
 
 	ut_ad(n_segments >= 4);
 
@@ -3415,9 +3425,20 @@ os_aio_init(
 		goto err_exit;
 	}
 
-	for (i = 2 + n_read_segs; i < n_segments; i++) {
-		ut_a(i < SRV_MAX_N_IO_THREADS);
-		srv_io_thread_function[i] = "write thread";
+	if ( srv_flash_cache_size > 0 ){
+		for (i = 2 + n_read_segs; i < n_segments - 2; i++) {
+			ut_a(i < SRV_MAX_N_IO_THREADS);
+			srv_io_thread_function[i] = "write thread";
+		}
+		srv_io_thread_function[i] = "flash cache read thread";
+		srv_io_thread_function[i+1] = "flash cache write thread";
+		os_aio_fc_read_array = os_aio_array_create(n_per_seg,1);
+		os_aio_fc_write_array = os_aio_array_create(n_per_seg,1);
+	}else{
+		for (i = 2 + n_read_segs; i < n_segments; i++) {
+			ut_a(i < SRV_MAX_N_IO_THREADS);
+			srv_io_thread_function[i] = "write thread";
+		}
 	}
 
 	os_aio_sync_array = os_aio_array_create(n_slots_sync, 1);
@@ -3464,7 +3485,12 @@ os_aio_free(void)
 	os_aio_write_array = NULL;
 	os_aio_array_free(os_aio_sync_array);
 	os_aio_sync_array = NULL;
-
+	if ( srv_flash_cache_size > 0 ){
+		os_aio_array_free(os_aio_fc_read_array);
+		os_aio_fc_read_array = NULL;
+		os_aio_array_free(os_aio_fc_write_array);
+		os_aio_fc_write_array = NULL;
+	}
 	for (i = 0; i < os_aio_n_segments; i++) {
 		os_event_free(os_aio_segment_wait_events[i]);
 	}
@@ -3509,7 +3535,10 @@ os_aio_wake_all_threads_at_shutdown(void)
 	os_aio_array_wake_win_aio_at_shutdown(os_aio_write_array);
 	os_aio_array_wake_win_aio_at_shutdown(os_aio_ibuf_array);
 	os_aio_array_wake_win_aio_at_shutdown(os_aio_log_array);
-
+	if ( srv_flash_cache_size > 0 ){
+		os_aio_array_wake_win_aio_at_shutdown(os_aio_fc_read_array);
+		os_aio_array_wake_win_aio_at_shutdown(os_aio_fc_write_array);
+	}
 #elif defined(LINUX_NATIVE_AIO)
 
 	/* When using native AIO interface the io helper threads
@@ -3542,6 +3571,17 @@ os_aio_wait_until_no_pending_writes(void)
 	os_event_wait(os_aio_write_array->is_empty);
 }
 
+/************************************************************************//**
+Waits until there are no pending writes in os_aio_write_array. There can
+be other, synchronous, pending writes. */
+UNIV_INTERN
+void
+os_aio_wait_until_no_pending_fc_writes(void)
+/*=====================================*/
+{
+	os_event_wait(os_aio_fc_write_array->is_empty);
+}
+
 /**********************************************************************//**
 Calculates segment number for a slot.
 @return segment number (which is the number used by, for example,
@@ -3567,13 +3607,20 @@ os_aio_get_segment_no_from_slot(
 			/ os_aio_read_array->n_segments;
 
 		segment = 2 + slot->pos / seg_len;
-	} else {
+	} else if( array == os_aio_write_array) {
 		ut_a(array == os_aio_write_array);
 		seg_len = os_aio_write_array->n_slots
 			/ os_aio_write_array->n_segments;
 
 		segment = os_aio_read_array->n_segments + 2
 			+ slot->pos / seg_len;
+	}
+	else if ( array == os_aio_fc_read_array ){
+		segment = os_aio_read_array->n_segments + 2 + os_aio_write_array->n_segments;
+	}
+	else{
+		ut_a ( array == os_aio_fc_write_array );
+		segment = os_aio_read_array->n_segments + 3 + os_aio_write_array->n_segments;
 	}
 
 	return(segment);
@@ -3605,7 +3652,13 @@ os_aio_get_array_and_local_segment(
 		*array = os_aio_read_array;
 
 		segment = global_segment - 2;
-	} else {
+	} else if (global_segment == 2 + os_aio_read_array->n_segments + os_aio_write_array->n_segments){
+		*array = os_aio_fc_read_array;
+		segment = 0;
+	}else if (global_segment == 3 + os_aio_read_array->n_segments + os_aio_write_array->n_segments){
+		*array = os_aio_fc_write_array;
+		segment = 0;
+	}else {
 		*array = os_aio_write_array;
 
 		segment = global_segment - (os_aio_read_array->n_segments + 2);
@@ -4089,6 +4142,9 @@ try_again:
 		/* In Linux native AIO we don't use sync IO array. */
 		ut_a(!srv_use_native_aio);
 #endif /* LINUX_NATIVE_AIO */
+		break;
+	case OS_AIO_FLASH_CACHE_WRITE:
+		array = os_aio_fc_write_array;
 		break;
 	default:
 		ut_error;
