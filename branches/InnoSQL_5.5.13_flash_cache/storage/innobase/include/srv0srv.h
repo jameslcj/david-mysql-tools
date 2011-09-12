@@ -70,6 +70,7 @@ extern ulint	srv_flash_cache_used;
 extern ulint	srv_flash_cache_migrate;
 
 extern my_bool	srv_flash_cache_use_log;
+extern my_bool  srv_flash_cache_use_shm_for_block;
 extern my_bool	srv_flash_cache_enable_migrate;
 extern my_bool	srv_flash_cache_is_raw;
 

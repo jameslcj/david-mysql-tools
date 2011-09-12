@@ -114,6 +114,7 @@ UNIV_INTERN ulint	srv_flash_read_cache_page = 512;
 UNIV_INTERN my_bool	srv_flash_cache_use_log = TRUE;
 UNIV_INTERN my_bool	srv_flash_cache_enable_migrate = TRUE;
 UNIV_INTERN my_bool	srv_flash_cache_is_raw = FALSE;
+UNIV_INTERN my_bool srv_flash_cache_use_shm_for_block = FALSE;
 
 /* The following counter is incremented whenever there is some user activity
 in the server */
@@ -3314,25 +3315,16 @@ srv_flash_cache_thread(
 
 	}
 
-	while ( 1 ){
-		/* This is only extra safety, the thread should exit
-		already when the event wait ends */
-		if ( trx_doublewrite->fc->flush_off == trx_doublewrite->fc->write_off 
-			&& trx_doublewrite->fc->flush_round == trx_doublewrite->fc->write_round ){
-			
-			mutex_enter(&kernel_mutex);
+	mutex_enter(&kernel_mutex);
 
-			/* Decrement the active count. */
-			srv_suspend_thread(slot);
+	/* Decrement the active count. */
+	srv_suspend_thread(slot);
 
-			slot->in_use = FALSE;
+	slot->in_use = FALSE;
 
-			mutex_exit(&kernel_mutex);
+	mutex_exit(&kernel_mutex);
 
-			os_thread_exit(NULL);
-		}
-		buf_flush_flash_cache_page(TRUE);
-	}
+	os_thread_exit(NULL);
 
 	OS_THREAD_DUMMY_RETURN;	/* Not reached, avoid compiler warning */
 }

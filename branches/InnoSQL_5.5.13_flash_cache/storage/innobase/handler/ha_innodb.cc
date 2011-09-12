@@ -332,7 +332,8 @@ performance schema instrumented if "UNIV_PFS_IO" is defined */
 static PSI_file_info	all_innodb_files[] = {
 	{&innodb_file_data_key, "innodb_data_file", 0},
 	{&innodb_file_log_key, "innodb_log_file", 0},
-	{&innodb_file_temp_key, "innodb_temp_file", 0}
+	{&innodb_file_temp_key, "innodb_temp_file", 0},
+	{&innodb_flash_cache_file_key, "innodb_flash_cache_file", 0}
 };
 # endif /* UNIV_PFS_IO */
 #endif /* HAVE_PSI_INTERFACE */
@@ -11343,9 +11344,14 @@ static MYSQL_SYSVAR_LONGLONG(flash_read_cache_size, innobase_flash_read_cache_si
   NULL, NULL, 0L, 0L, LONGLONG_MAX, 1024*1024L);
 
 static MYSQL_SYSVAR_BOOL(flash_cache_enable_log, srv_flash_cache_use_log,
-  PLUGIN_VAR_READONLY,
-  "Enable flash cache log",
-  NULL, NULL, TRUE);
+	PLUGIN_VAR_READONLY,
+	"Enable flash cache log",
+	NULL, NULL, TRUE);
+
+static MYSQL_SYSVAR_BOOL(flash_cache_use_shm_for_block, srv_flash_cache_use_shm_for_block,
+	PLUGIN_VAR_READONLY,
+	"Use shared memory for flash cache blocks",
+	NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_BOOL(flash_cache_is_raw, srv_flash_cache_is_raw,
   PLUGIN_VAR_READONLY,
@@ -11379,6 +11385,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(flash_cache_do_full_io_pct),
   MYSQL_SYSVAR(flash_cache_migrate_pct),
   MYSQL_SYSVAR(flash_cache_enable_log),
+  MYSQL_SYSVAR(flash_cache_use_shm_for_block),
   MYSQL_SYSVAR(flash_cache_file),
   MYSQL_SYSVAR(flash_cache_warmup_table),
   MYSQL_SYSVAR(flash_cache_size),
