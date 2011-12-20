@@ -1,4 +1,7 @@
 #labels InnoDB,SSD,Flash,Cache,MySQL
+
+==* New flash cache solution is here:<br>[http://code.google.com/p/david-mysql-tools/wiki/Flash_Cache_For_InnoDB].<br>No plan to continue this project*==
+
 Contact me if you wanna know more about this project or my support in using secondary buffer pool:<br>
 Mail: jiangchengyao@gmail.com<br>
 MSN: jiangchengyao@gmail.com<br>
