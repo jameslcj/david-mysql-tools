@@ -1,3 +1,4 @@
+#labels FlashCache,InnoDB,MySQL
 #Flash Cache for InnoDB
 
 = Introduction =
