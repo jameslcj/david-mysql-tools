@@ -17,4 +17,36 @@ In this flash cache, it replace the original InnoDB doublewrite file, where page
 *Figure 1-1 Flash Cache Architecture*<br>
 [http://blog.chinaunix.net/attachment/201108/29/196376_13145957329oNS.png]
 
+For internal view, flash cache is more like a redo log file. All the writes are appended in the end of the file. 
+
+*Figure 1-2 Flash Cache Architecture*<br>
+[http://blog.chinaunix.net/attachment/201112/20/196376_1324350655OBBV.png]
+
 == Data Structure ==
+
+{{{
+/** Flash cache block struct */
+struct trx_flashcache_block_struct{
+	unsigned	space:32;	/*!< tablespace id */
+	unsigned	offset:32;	/*!< page number */
+	unsigned	fil_offset:32;	/*!< flash cache page number */
+	unsigned	state:2;		/*!< flash cache state*/
+	trx_flashcache_block_t* hash;	/*!< hash chain */
+};
+}}}
+
+{{{
+/** Flash cache struct */
+struct trx_flashcache_struct{
+	mutex_t	fc_mutex;/*!< mutex protecting flash cache */
+	hash_table_t* fc_hash;   /*!< hash table of flash cache pages */
+	ulint		fc_size; /*!< flash cache size */
+	ulint		write_off; /*!< write to flash cache offset */
+	ulint		flush_off; /*!< flush to disk this offset */
+	ulint		write_round; /* write round */
+	ulint		flush_round; /* flush round */
+	trx_flashcache_block_t* block; /* flash cache block */
+	byte*		read_buf_unalign; /* unalign read buf */
+	byte*		read_buf;	/* read buf */
+}
+}}}
