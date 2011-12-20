@@ -2,7 +2,8 @@
 
 = Introduction =
 
-This is a new flash cache solution for InnoDB, which is totally different from the previous Secondary Buffer Pool for InnoDB. The main feature is:<br>
+This is a new flash cache solution for InnoDB, which is totally different from the previous Secondary Buffer Pool for InnoDB. The main feature is:
+
 1. Write on SSD is sequential, no random writes on SSD<br>
 2. Flash cache is a persistent cache.<br>
 3. Can do merge write.<br>
@@ -11,6 +12,9 @@ This is a new flash cache solution for InnoDB, which is totally different from t
 
 = Architecture =
 
-In this flash cache, it replace the original InnoDB doublewrite, which page first sequential write here. What is different is using SSD we can have a large doublewrite, for example, 100G or 300G, page first write still happened here. After a period time, the page on SSD is flush to disk. Because same page, with different LSN, 
-may on the flash cache, flushing page from flash cache to disk only need the newest page with largest LSN. Hence, this makes the merge write happen. Figure 1-1 is the flash cache architecture:
+In this flash cache, it replace the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. What is different is using SSD we can have a large doublewrite, for example, 100G or 300G, page first write still happened here. After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with largest LSN. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD.
+
+*Figure 1-1 Flash Cache Architecture*<br>
 [http://blog.chinaunix.net/attachment/201108/29/196376_13145957329oNS.png]
+
+== Data Structure ==
