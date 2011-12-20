@@ -1,5 +1,5 @@
 #labels SSD,InnoDB,MySQL,Flash,Cache
-#Flash Cache for InnoDB
+# Flash Cache for InnoDB
 
 = Introduction =
 
