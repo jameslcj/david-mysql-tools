@@ -1,0 +1,36 @@
+# Record logical and physical reads in InnoDB
+
+= Introduction =
+
+Show logical and physical reads in InnoDB. Physical reads means page reads from disk. Logical reads means page reads in InnoDB, including page reads from buffer pool and disk. This patch adds these IO statistics into slow log and MySQL profiler. Moreover, this patch can record SQL, whose logical reads is greater than a predefined value, into slow log file.
+
+
+= Example =
+* record SQL query to slow log *
+{{{
+# Time: 111227 23:49:16
+# User@Host: root[root] @ localhost [127.0.0.1]
+# Query_time: 6.081214 Lock_time: 0.046800 Rows_sent: 42 Rows_examined: 727558 Logical_reads: 91584 Physical_reads: 19
+use tpcc;
+SET timestamp=1325000956;
+SELECT orderid,customerid,employeeid,orderdate
+FROM orders
+WHERE orderdate IN
+( SELECT MAX(orderdate)
+FROM orders
+GROUP BY (DATE_FORMAT(orderdate,'%Y%M'))
+);
+}}}
+* IO statistics in profiler
+{{{
+mysql> set profiling=1;
+Query OK, 0 rows affected (0.00 sec)
+}}}
+
+= Variables =
+
+= Patch =
+Add your content here.  Format your content with:
+  * Text in *bold* or _italic_
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages
