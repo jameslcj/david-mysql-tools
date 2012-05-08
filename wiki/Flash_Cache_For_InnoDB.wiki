@@ -83,3 +83,6 @@ innodb_flash_cache_warmup_table=tpcc.*
 innodb_flash_cache_warmup_table=tpcc.stock
 innodb_flash_cache_warmup_table=tpcc.stock:sbtest:sbtest1
 }}}
+= Patch =
+patch for MySQL 5.5.20
+http://david-mysql-tools.googlecode.com/files/fc.patch
