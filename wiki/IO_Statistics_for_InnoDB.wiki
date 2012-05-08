@@ -1,12 +1,13 @@
-# Record logical and physical reads in InnoDB
+#labels MySQL,InnoDB
+# Record or show SQL logical and physical reads happened in InnoDB storage engine.
 
 = Introduction =
 
-Show logical and physical reads in InnoDB. Physical reads means page reads from disk. Logical reads means page reads in InnoDB, including page reads from buffer pool and disk. This patch adds these IO statistics into slow log and MySQL profiler. Moreover, this patch can record SQL, whose logical reads is greater than a predefined value, into slow log file.
+Record or show SQL logical and physical reads happened in InnoDB storage engine. Physical reads means page reads from disk. Logical reads means page reads in InnoDB, including page reads from buffer pool and disk. This patch adds these IO statistics into slow log and MySQL profiler. Moreover, this patch can record SQL, whose logical reads is greater than a predefined value, into slow log file.
 
 
 = Example =
-* record SQL query to slow log *
+* slow log with logical/physical reads *
 {{{
 # Time: 111227 23:49:16
 # User@Host: root[root] @ localhost [127.0.0.1]
@@ -25,12 +26,33 @@ GROUP BY (DATE_FORMAT(orderdate,'%Y%M'))
 {{{
 mysql> set profiling=1;
 Query OK, 0 rows affected (0.00 sec)
+
+mysql> select count(1) from stock;
++----------+
+| count(1) |
++----------+
+| 50000000 |
++----------+
+1 row in set (30.98 sec)
+
+mysql> show profiles;
++----------+-------------+---------------+----------------+----------------------------+
+| Query_ID | Duration    | Logical_reads | Physical_reads | Query                      |
++----------+-------------+---------------+----------------+----------------------------+
+|        1 | 30.97979100 |       6359297 |          54673 | select count(1) from stock |
++----------+-------------+---------------+----------------+----------------------------+
+1 row in set (0.00 sec)
 }}}
 
 = Variables =
+=== slow_query_type ===
+Type of slow query. Default: 0
+  * 0: do not record SQL to slow log.
+  * 1: record SQL to slow log according long_query_time.
+  * 2: redord SQL to slow log according long_query_io.
+  * 3: redord SQL to slow log according either long_query_time or long_query_io.
+=== long_query_io ===
+Record SQL to slow log whose logical reads exceeded this value. Default: 100
 
 = Patch =
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+patch: http://david-mysql-tools.googlecode.com/files/mysql-5.5.20.io_stat.patch
