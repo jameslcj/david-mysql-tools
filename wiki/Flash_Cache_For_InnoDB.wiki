@@ -59,7 +59,27 @@ struct fc_struct{
 
 = Variables =
 === innodb_flash_cache_file ===
-Where is the flash cache file name, default ib_fcfile. For example: innodb_flash_cache_file=/ssd/my_fcfile
+Where is the flash cache file name. For example: 
+{{{
+innodb_flash_cache_file=/ssd/my_fcfile
+}}}
 === innodb_flash_cache_size ===
-Size of flash cache. For example: innodb_flash_cache_size = 100G
-=== innodb_flash_cache_ ===
+Size of flash cache. For example: 
+{{{
+innodb_flash_cache_size = 100G
+}}}
+=== innodb_flash_cache_is_raw ===
+You can use raw device as flash cache. Default valuse is 0.
+=== innodb_flash_cache_enable_migrate ===
+Enable page migrate to flash cache. If page is read into buffer pool, and than swap from LRU list. But this page is not changed in the buffer pool, so it will not in the flash cahce. Set innodb_flash_cache_enable_migrate to 1 will write is page to flash cache when swap out from LRU list. Default: 1
+=== innodb_flash_cache_enable_move ===
+Enable flash cache block move to new position. This design is for better read hit ratio. Default: 1
+=== innodb_flash_cache_move_limit ===
+When to trigger flash cache block move. When the page is read from flash cache, but the flash cache block is in the lower part of the position(which means it maybe write soon), then it will move the flash cache block to new position. Default: 90
+=== innodb_flash_cache_warmup_table ===
+Read page from table to flash cache. For example: 
+{{{
+innodb_flash_cache_warmup_table=tpcc.*
+innodb_flash_cache_warmup_table=tpcc.stock
+innodb_flash_cache_warmup_table=tpcc.stock:sbtest:sbtest1
+}}}
