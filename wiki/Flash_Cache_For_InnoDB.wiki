@@ -13,7 +13,7 @@ This is a new flash cache solution for InnoDB, which is totally different from t
 
 = Architecture =
 
-In this flash cache, it replace the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. What is different is using SSD we can have a large doublewrite, for example, 100G or 300G, page first write still happened here. After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with largest LSN. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD.
+In this flash cache solution, it replaces the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. The difference is when using SSD, we can have a large doublewrite, for example, 100G or 300G. Page first write still happened here(also sequential). After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with the fresh version. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD.
 
 *Figure 1-1 Flash Cache Architecture*<br>
 [http://blog.chinaunix.net/attachment/201108/29/196376_13145957329oNS.png]
@@ -26,28 +26,28 @@ For internal view, flash cache is more like a redo log file. All the writes are 
 == Data Structure ==
 
 {{{
-/** Flash cache block struct */
-struct trx_flashcache_block_struct{
-	unsigned	space:32;	/*!< tablespace id */
-	unsigned	offset:32;	/*!< page number */
-	unsigned	fil_offset:32;	/*!< flash cache page number */
-	unsigned	state:2;		/*!< flash cache state*/
-	trx_flashcache_block_t* hash;	/*!< hash chain */
+/** flash cache block strunct */
+struct fc_block_struct{
+	ulint	space:32;	/*!< tablespace id */
+	ulint	offset:32;	/*!< page number */
+	ulint	fil_offset:32;	/*!< flash cache page number */
+	ulint	state:2;			/*!< flash cache block state */
+	fc_block_t* hash;	/*!< hash chain */
+	unsigned	is_aio_reading:1; /*!< if is in aio reading status */
 };
-}}}
 
-{{{
-/** Flash cache struct */
-struct trx_flashcache_struct{
-	mutex_t	fc_mutex;/*!< mutex protecting flash cache */
-	hash_table_t* fc_hash;   /*!< hash table of flash cache pages */
-	ulint		fc_size; /*!< flash cache size */
-	ulint		write_off; /*!< write to flash cache offset */
-	ulint		flush_off; /*!< flush to disk this offset */
-	ulint		write_round; /* write round */
-	ulint		flush_round; /* flush round */
-	trx_flashcache_block_t* block; /* flash cache block */
-	byte*		read_buf_unalign; /* unalign read buf */
-	byte*		read_buf;	/* read buf */
-}
+/** flash cache struct */
+struct fc_struct{
+	mutex_t			mutex; /*!< mutex protecting flash cache */
+	hash_table_t*	hash_table; /*!< hash table of flash cache blocks */
+	mutex_t			hash_mutex; /* mutex protecting flash cache hash table */
+	ulint			size; /*!< flash cache size */
+	ulint			write_off; /*!< write to flash cache offset */
+	ulint			flush_off; /*!< flush to disk this offset */
+	ulint			write_round; /*!< write round */
+	ulint			flush_round; /*!< flush round */
+	fc_block_t* block; /*!< flash cache block */
+	byte*			read_buf_unalign; /*!< unalign read buf */
+	byte*			read_buf;	/*!< read buf */
+};
 }}}
