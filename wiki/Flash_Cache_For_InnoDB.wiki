@@ -13,15 +13,20 @@ This is a new flash cache solution for InnoDB, which is totally different from t
 
 = Architecture =
 
-In this flash cache solution, it replaces the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. The difference is when using SSD, we can have a large doublewrite, for example, 100G or 300G. Page first write still happened here(also sequential). After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with the fresh version. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD.
+In this flash cache solution, it replaces the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. The difference is when using SSD, we can have a large doublewrite, for example, 100G or 300G. Page first write still happened here(also sequential). After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with the fresh version. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD. 
 
 *Figure 1-1 Flash Cache Architecture*<br>
 [http://blog.chinaunix.net/attachment/201108/29/196376_13145957329oNS.png]
 
 For internal view, flash cache is more like a redo log file. All the writes are appended in the end of the file. 
 
-*Figure 1-2 Flash Cache Architecture*<br>
+*Figure 1-2 Flash Cache Internal Architecture*<br>
 [http://blog.chinaunix.net/attachment/201112/20/196376_1324350655OBBV.png]
+
+There is a new background thread, flash cache thread, for flushing flash cache block on SSD to the real tablespace location. The flush strategy is:<br>
+# If the total number of flash cache block is lower than *innodb_flash_cache_write_cache_pct *(default is 10, means 10% of flash cache size), flash cache thread will not flush flash cache block to disk except that MySQL server is idle. The design is for high merge write ratio. If you want high merge write ratio, you can increase this variable. <br>
+# Else, if If the total number of flash cache block is lower than *innodb_flash_cache_do_full_io_pct*, flash cache thread will flush 10% innodb_io_capacity page to disk per second. For example, if you set innodb_io_capacity to 1000, then only 100 pages will be flushed. But, because of merge write, not all 100 pages will be flushed to disk.<br>
+# Else, flash thread will flush 100% innodb_io_capactiy pages to disk. 
 
 == Data Structure ==
 
@@ -51,3 +56,10 @@ struct fc_struct{
 	byte*			read_buf;	/*!< read buf */
 };
 }}}
+
+= Variables =
+=== innodb_flash_cache_file ===
+Where is the flash cache file name, default ib_fcfile. For example: innodb_flash_cache_file=/ssd/my_fcfile
+=== innodb_flash_cache_size ===
+Size of flash cache. For example: innodb_flash_cache_size = 100G
+=== innodb_flash_cache_ ===
