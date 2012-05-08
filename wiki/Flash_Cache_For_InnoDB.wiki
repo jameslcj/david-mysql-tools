@@ -24,9 +24,9 @@ For internal view, flash cache is more like a redo log file. All the writes are 
 [http://blog.chinaunix.net/attachment/201112/20/196376_1324350655OBBV.png]
 
 There is a new background thread, flash cache thread, for flushing flash cache block on SSD to the real tablespace location. The flush strategy is:<br>
-# If the total number of flash cache block is lower than *innodb_flash_cache_write_cache_pct *(default is 10, means 10% of flash cache size), flash cache thread will not flush flash cache block to disk except that MySQL server is idle. The design is for high merge write ratio. If you want high merge write ratio, you can increase this variable. <br>
-# Else, if If the total number of flash cache block is lower than *innodb_flash_cache_do_full_io_pct*, flash cache thread will flush 10% innodb_io_capacity page to disk per second. For example, if you set innodb_io_capacity to 1000, then only 100 pages will be flushed. But, because of merge write, not all 100 pages will be flushed to disk.<br>
-# Else, flash thread will flush 100% innodb_io_capactiy pages to disk. 
+1. If the total number of flash cache block is lower than *innodb_flash_cache_write_cache_pct *(default is 10, means 10% of flash cache size), flash cache thread will not flush flash cache block to disk except that MySQL server is idle. The design is for high merge write ratio. If you want high merge write ratio, you can increase this variable. <br>
+2. Else, if If the total number of flash cache block is lower than *innodb_flash_cache_do_full_io_pct*, flash cache thread will flush 10% innodb_io_capacity page to disk per second. For example, if you set innodb_io_capacity to 1000, then only 100 pages will be flushed. But, because of merge write, not all 100 pages will be flushed to disk.<br>
+3. Else, flash thread will flush 100% innodb_io_capactiy pages to disk. 
 
 == Data Structure ==
 
