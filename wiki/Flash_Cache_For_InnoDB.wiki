@@ -1,8 +1,8 @@
 #labels SSD,InnoDB,MySQL,Flash,Cache
-Contact me if you wanna know more about this project or my support in using it:
-Mail: jiangchengyao@gmail.com
-MSN: jiangchengyao@gmail.com
-Webo: insidemysql
+Contact me if you wanna know more about this project or my support in using it:<br>
+Mail: jiangchengyao@gmail.com<br>
+MSN: jiangchengyao@gmail.com<br>
+Weibo: insidemysql<br>
 
 # Flash Cache for InnoDB
 
