@@ -21,7 +21,7 @@ This is a new flash cache solution for InnoDB, which is totally different from t
 In this flash cache solution, it replaces the original InnoDB doublewrite file, where pages first sequential write here and then flush to disk. Originally, doublewrite is to avoid partial write problem, no read on it. The difference is when using SSD, we can have a large doublewrite, for example, 100G or 300G. Page first write still happened here(also sequential). After a period time, the page on SSD is flush to disk. Because same page, with different LSN, may on the flash cache, flushing page from flash cache to disk only need the newest page with the fresh version. Hence, this makes the merge write happen. Furthermore, page can be read from doublewrite, which use the feature of high random IOPS of SSD. 
 
 *Figure 1-1 Flash Cache Architecture*<br>
-[http://blog.chinaunix.net/attachment/201108/29/196376_13145957329oNS.png]
+[http://img5.ph.126.net/jDZ7G2l-LujTW7D4T9-3LQ==/6597371032844386065.jpg]
 
 For internal view, flash cache is more like a redo log file. All the writes are appended in the end of the file. 
 
