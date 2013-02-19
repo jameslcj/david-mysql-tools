@@ -4,7 +4,7 @@ Twitter: jdaaaaaavid<br>
 
 = Introduction =
 
-This patch improves MySQL slave to speed up applying binary log.
+This patch improves MySQL slave to accelerate applying relay log.
 
 
 = Details =
@@ -43,7 +43,7 @@ max batch commit count
 
 = Benchmark =
 benchmark: sysbench 0.5<br>
-script: sysbench --test=/Users/david/Project/zipf-distribution/sysbench/tests/db/update_index.lua --oltp-table-size=80000000 --mysql-user=root --mysql-socket=/tmp/mysql.socket --oltp-dist-type=uniform --num-threads=8 --max-requests=0 --max-time=1800 --oltp-read-only=off  --report-interval=10 run<br>
+script: sysbench --test=update_index.lua --oltp-table-size=80000000 --oltp-dist-type=uniform --num-threads=16 --max-requests=0 --max-time=1800 --oltp-read-only=off  --report-interval=10 run<br>
 result:<br>
 [http://img7.ph.126.net/VN-nMGXwFLHt9GrKZcEiWQ==/6598253940679858557.jpg]
 
